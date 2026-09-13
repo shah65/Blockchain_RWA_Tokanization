@@ -8,7 +8,7 @@
 use anchor_lang::prelude::*;
 use crate::state::{UserProfile, Role};
 
-pub fn handler(ctx: Context<InitUserProfile>, role: Role) -> Result<()> {
+pub fn user_handler(ctx: Context<InitUserProfile>, role: Role) -> Result<()> {
     let profile = &mut ctx.accounts.user_profile;
     profile.wallet = ctx.accounts.wallet.key();
     profile.role = role;

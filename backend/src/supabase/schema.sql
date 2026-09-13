@@ -1,11 +1,3 @@
--- ============================================================================
--- Supabase schema — OFF-CHAIN data only.
--- Everything money/ownership-critical lives on-chain (see anchor-program/).
--- These tables hold KYC info, media, and descriptive text that is either
--- too big or too private to put on a public blockchain.
--- ============================================================================
-
--- Extension for UUIDs
 create extension if not exists "pgcrypto";
 
 -- ----------------------------------------------------------------------------

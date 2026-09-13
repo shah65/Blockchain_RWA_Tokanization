@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@anchor-lang/core": "^1.2.0",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.99.0"
+  }
+}

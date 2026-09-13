@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use crate::state::{Business, Investment, ProfitDeposit};
 use crate::errors::RwaError;
 
-pub fn handler(ctx: Context<ClaimProfit>, year: u16, month: u8) -> Result<()> {
+pub fn profit_handler(ctx: Context<ClaimProfit>, year: u16, month: u8) -> Result<()> {
     let investment = &mut ctx.accounts.investment;
     require!(investment.tokens_owned > 0, RwaError::NoInvestmentFound);
 

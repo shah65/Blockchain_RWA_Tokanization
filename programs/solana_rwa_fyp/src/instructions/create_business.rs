@@ -4,7 +4,7 @@ use anchor_spl::token_interface::TokenInterface;
 use crate::state::{Business, UserProfile, Role};
 use crate::errors::RwaError;
 
-pub fn handler(
+pub fn business_handler(
     ctx: Context<CreateBusiness>,
     business_id: u64,
     total_tokens: u64,

@@ -4,7 +4,7 @@ use anchor_spl::token_interface::{self,TokenInterface, TransferChecked};
 use crate::state::{Business, Investment, UserProfile};
 use crate::errors::RwaError;
 
-pub fn handler(ctx: Context<BuyTokens>, amount: u64) -> Result<()> {
+pub fn tokens_handler(ctx: Context<BuyTokens>, amount: u64) -> Result<()> {
     require!(amount > 0, RwaError::InvalidAmount);
 
     let business = &mut ctx.accounts.business;

@@ -5,7 +5,7 @@ pub mod errors;
 pub mod instructions;
 use instructions::*;
 // Replace with your own program id after `anchor build` + `anchor keys list`
-declare_id!("APGJ8oXi2fbFsMXkiRJv846X7BoJpXZDmZXJRgXHGUmf");
+declare_id!("5FfxQzVa58zNo4xFTHLzwCdmdgnxxVCujdwkSkQxLBDn");
 
 #[program]
 pub mod rwa_tokenization {
@@ -18,7 +18,7 @@ pub mod rwa_tokenization {
     // (just fetch the PDA — if it doesn't exist, show the "choose role" screen).
     
     pub fn init_user_profile(ctx: Context<InitUserProfile>, role: state::Role) -> Result<()> {
-        instructions::init_user::handler(ctx, role)
+        instructions::init_user::user_handler(ctx, role)
     }
 
     // ---- BUSINESS ------------------------------------------------------------
@@ -34,7 +34,7 @@ pub mod rwa_tokenization {
         total_tokens: u64,
         price_per_token: u64,
     ) -> Result<()> {
-        instructions::create_business::handler(ctx, business_id, total_tokens, price_per_token)
+        instructions::create_business::business_handler(ctx, business_id, total_tokens, price_per_token)
     }
 
     // ---- TOKEN SALE (USDC, via escrow vault) --------------------------------
@@ -43,7 +43,7 @@ pub mod rwa_tokenization {
     // Also records/updates an Investment PDA (seeded by business + investor)
     // tracking how much this specific investor holds.
     pub fn buy_tokens(ctx: Context<BuyTokens>, amount: u64) -> Result<()> {
-        instructions::buy_tokens::handler(ctx, amount)
+        instructions::buy_tokens::tokens_handler(ctx, amount)
     }
 
     // ---- PROFIT DEPOSIT (business owner -> pool) --------------------------
@@ -56,13 +56,13 @@ pub mod rwa_tokenization {
         month: u8,
         amount: u64,
     ) -> Result<()> {
-        instructions::deposit_profit::handler(ctx, year, month, amount)
+        instructions::deposit_profit::deposit_handler(ctx, year, month, amount)
     }
 
     // ---- PROFIT CLAIM (investor pulls their share) -------------------------
     // Investor claims their proportional share of a given month's deposit,
     // based on (investor.tokens_owned / business.total_tokens_sold).
     pub fn claim_profit(ctx: Context<ClaimProfit>, year: u16, month: u8) -> Result<()> {
-        instructions::claim_profit::handler(ctx, year, month)
+        instructions::claim_profit::profit_handler(ctx, year, month)
     }
 }

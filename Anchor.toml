@@ -3,12 +3,13 @@ skip_local_validator = true
 [toolchain]
 anchor_version = "1.2.0"
 
+
 [features]
 resolution = true
 skip-lint = false
 
 [programs.localnet]
-solana_rwa_fyp = "APGJ8oXi2fbFsMXkiRJv846X7BoJpXZDmZXJRgXHGUmf"
+solana_rwa_fyp = "5FfxQzVa58zNo4xFTHLzwCdmdgnxxVCujdwkSkQxLBDn"
 
 [provider]
 cluster = "localnet"

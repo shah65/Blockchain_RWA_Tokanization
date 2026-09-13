@@ -3,7 +3,7 @@ use anchor_lang::system_program::{transfer, Transfer};
 use crate::state::{Business, ProfitDeposit};
 use crate::errors::RwaError;
 
-pub fn handler(ctx: Context<DepositProfit>, year: u16, month: u8, amount: u64) -> Result<()> {
+pub fn deposit_handler(ctx: Context<DepositProfit>, year: u16, month: u8, amount: u64) -> Result<()> {
     require!(amount > 0, RwaError::InvalidAmount);
     require!(
         ctx.accounts.business.owner == ctx.accounts.owner.key(),

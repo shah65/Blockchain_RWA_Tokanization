@@ -1,20 +1,17 @@
 // ============================================================================
 // rwa_tokenization.ts - Complete Test Suite
 // ============================================================================
-
-import * as anchor from "@coral-xyz/anchor";
-import { Program } from "@coral-xyz/anchor";
-import { SolanaRwaFyp } from "../target/types/solana_rwa_fyp";
+import * as anchor from "@anchor-lang/core";
+import { Program } from "@anchor-lang/core";
 import {
-    TOKEN_2022_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
     createMint,
-    createAccount,
-    mintTo,
     getOrCreateAssociatedTokenAccount,
+    mintTo
 } from "@solana/spl-token";
+import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import { assert } from "chai";
-import { PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
+import { SolanaRwaFyp } from "../target/types/solana_rwa_fyp";
 
 // Helper to find PDA
 function findPda(seeds: (Uint8Array | Buffer)[], programId: PublicKey): [PublicKey, number] {

@@ -1,0 +1,53 @@
+/* ==========================================================================
+   frontend/src/styles/theme.css
+   Single source of truth for colors, spacing, glass, shadows.
+   Import once in main.jsx. Use everywhere.
+   ========================================================================== */
+
+:root {
+  /* ---- Base surfaces ---- */
+  --bg-deep: #05060a;
+  --bg-surface: #0b0d17;
+  --bg-elevated: #13152700;
+
+  /* ---- Brand ---- */
+  --brand-violet: #8b5cf6;
+  --brand-indigo: #6366f1;
+  --brand-cyan: #22d3ee;
+  --brand-blue: #60a5fa;
+
+  /* ---- Text ---- */
+  --text-primary: #f5f6fa;
+  --text-secondary: rgba(220, 222, 235, 0.78);
+  --text-muted: rgba(200, 205, 225, 0.55);
+  --text-on-brand: #ffffff;
+
+  /* ---- Glass ---- */
+  --glass-bg: rgba(15, 17, 28, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-hi: rgba(160, 140, 255, 0.5);
+  --glass-blur: 20px;
+
+  /* ---- Overlays over the video ---- */
+  --overlay-glow:
+    radial-gradient(1200px 700px at 20% -10%, rgba(139, 92, 246, 0.22), transparent 60%),
+    radial-gradient(900px 600px at 90% 10%, rgba(34, 211, 238, 0.14), transparent 55%);
+  --overlay-base:
+    linear-gradient(180deg,
+      rgba(5, 6, 10, 0.55) 0%,
+      rgba(5, 6, 10, 0.78) 55%,
+      rgba(5, 6, 10, 0.95) 100%);
+
+  /* ---- Radii + shadows ---- */
+  --radius-sm: 10px;
+  --radius-card: 22px;
+  --radius-pill: 999px;
+  --shadow-card: 0 20px 40px -20px rgba(0, 0, 0, 0.85);
+  --shadow-glow: 0 40px 80px -30px rgba(139, 92, 246, 0.55);
+
+  /* ---- Motion ---- */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 0.2s;
+  --duration-med: 0.5s;
+  --duration-slow: 0.8s;
+}

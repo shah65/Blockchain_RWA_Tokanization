@@ -13,6 +13,7 @@ import "@solana/wallet-adapter-react-ui/styles.css";
 import { RPC_URL } from "./config/web3";
 import { AuthProvider } from "./context/AuthContext";
 import App from "./App";
+import "./styles/theme.css";
 import "./index.css";
 // Only list wallets you've actually tested against. Adding more here is a
 // UX/security surface tradeoff — every wallet is a different code path.

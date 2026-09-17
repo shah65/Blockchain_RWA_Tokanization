@@ -52,57 +52,42 @@ export function AuthProvider({ children }) {
   // --------------------------------------------------------------------------
   // Sign in with Solana wallet
   // --------------------------------------------------------------------------
-  const signIn = useCallback(async () => {
+  const signIn = useCallback(async (role) => {
     if (!publicKey || !signMessage) {
       toast.error("Connect a wallet that supports message signing.");
       return null;
     }
 
     setIsAuthenticating(true);
-
     try {
-      // 1. Get wallet address
       const walletAddress = publicKey.toBase58();
 
-      // 2. Ask backend for nonce
+      // 1. Ask backend for a message to sign.
       const { data: nonceData } = await api.get("/auth/nonce", {
-        params: {
-          wallet: walletAddress,
-        },
+        params: { wallet: walletAddress },
       });
 
-      // 3. Convert backend message to bytes
+      // 2. Sign it with the wallet.
       const messageBytes = new TextEncoder().encode(nonceData.message);
-
-      // 4. Ask wallet to sign message
       const signedBytes = await signMessage(messageBytes);
-
-      // 5. Convert signature to base58
       const signature = bs58.encode(signedBytes);
 
-      // 6. Send signature to backend
+      // 3. Send the signature AND the role the user picked.
       const { data } = await api.post("/auth/verify", {
         walletAddress,
         signature,
+        role,
       });
 
-      // 7. Save JWT
+      console.log("[auth] /auth/verify response:", data);
       setAuthToken(data.token);
-
-      // 8. Save profile
       setProfile(data.profile);
-
-      // 9. Mark authenticated
       setIsAuthenticated(true);
-
       return data.profile;
     } catch (err) {
       console.error("Sign-in failed:", err);
-
       toast.error("Sign-in failed. Please try again.");
-
       setIsAuthenticated(false);
-
       return null;
     } finally {
       setIsAuthenticating(false);
@@ -144,6 +129,7 @@ export function AuthProvider({ children }) {
   // Wallet disconnected
   // --------------------------------------------------------------------------
   useEffect(() => {
+    if(!isReady) return;
     if (!connected) {
       setAuthToken(null);
       setProfile(null);

@@ -5,7 +5,7 @@
 // ============================================================================
 import { useEffect, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import * as anchor from "@anchor-lang/core";
+import * as anchor from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import toast from "react-hot-toast";

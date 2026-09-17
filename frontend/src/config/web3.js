@@ -9,7 +9,7 @@ import {
   PublicKey,
 } from "@solana/web3.js";
 
-import { AnchorProvider, Program } from "@anchor-lang/core";
+import { AnchorProvider, Program } from "@coral-xyz/anchor";
 
 import idl from "./idl/rwa_tokenization.json";
 
@@ -19,7 +19,6 @@ import idl from "./idl/rwa_tokenization.json";
 
 export const RPC_URL =
   import.meta.env.VITE_SOLANA_RPC_URL ||
-  import.meta.env.VITE_SOLANA_RPC ||
   clusterApiUrl("devnet");
 
 // -----------------------------------------------------------------------------
@@ -59,8 +58,15 @@ export const connection = new Connection(
 // Anchor Program
 // ============================================================================
 
-export function getProgram(wallet) {
-  if (!wallet) {
+export function getProgram(walletCtx) {
+  console.log("[web3] getProgram called with:", walletCtx);
+
+  // useWallet() gives you a Wallet Standard wrapper ({ adapter, readyState, ... }).
+  // AnchorProvider needs the actual signer interface, which lives on `.adapter`.
+  const adapterWallet = walletCtx?.adapter ?? walletCtx;
+  console.log("[web3] resolved adapterWallet:", adapterWallet);
+
+  if (!adapterWallet || !adapterWallet.publicKey) {
     throw new Error("Wallet not connected");
   }
 
@@ -70,20 +76,29 @@ export function getProgram(wallet) {
     );
   }
 
-  const provider = new AnchorProvider(
-    connection,
-    wallet,
-    {
-      preflightCommitment: "confirmed",
-      commitment: "confirmed",
-    }
-  );
+  if (idl.address && idl.address !== PROGRAM_ID.toBase58()) {
+    console.warn(
+      "[web3] idl.address does not match VITE_PROGRAM_ID:",
+      idl.address,
+      "vs",
+      PROGRAM_ID.toBase58()
+    );
+  }
 
-  return new Program(
-    idl,
-    PROGRAM_ID,
-    provider
-  );
+  const provider = new AnchorProvider(connection, adapterWallet, {
+    preflightCommitment: "confirmed",
+    commitment: "confirmed",
+  });
+  console.log("[web3] provider created:", provider);
+
+  // Anchor >=0.30 reads the program id from idl.address, so this only
+  // takes (idl, provider). Passing PROGRAM_ID as a 2nd positional arg
+  // was shifting `provider` out of place — that was the root cause of
+  // "Cannot read properties of undefined (reading 'size')".
+  const program = new Program(idl, provider);
+  console.log("[web3] Program instance created:", program);
+
+  return program;
 }
 
 // ============================================================================

@@ -1,5 +1,5 @@
 {
-  "address": "5FfxQzVa58zNo4xFTHLzwCdmdgnxxVCujdwkSkQxLBDn",
+  "address": "12ET83PFMoQeCdRwhTnbSKN9rHWSEafVeVLoJA2JYFuP",
   "metadata": {
     "name": "rwa_tokenization",
     "version": "0.1.0",
@@ -230,6 +230,12 @@
         },
         {
           "name": "owner_profile",
+          "docs": [
+            "Created lazily the first time this owner does an on-chain action.",
+            "The owner pays rent for this PDA inside the same transaction that",
+            "creates the business — one signature, one fee."
+          ],
+          "writable": true,
           "pda": {
             "seeds": [
               {

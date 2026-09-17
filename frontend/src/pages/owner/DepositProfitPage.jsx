@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
-import * as anchor from "@anchor-lang/core";
+import * as anchor from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import toast from "react-hot-toast";

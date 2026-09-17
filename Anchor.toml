@@ -9,10 +9,13 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-solana_rwa_fyp = "5FfxQzVa58zNo4xFTHLzwCdmdgnxxVCujdwkSkQxLBDn"
+solana_rwa_fyp = "12ET83PFMoQeCdRwhTnbSKN9rHWSEafVeVLoJA2JYFuP"
+
+[programs.devnet]
+solana_rwa_fyp = "12ET83PFMoQeCdRwhTnbSKN9rHWSEafVeVLoJA2JYFuP"
 
 [provider]
-cluster = "localnet"
+cluster = "Devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

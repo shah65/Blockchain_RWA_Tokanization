@@ -5,7 +5,7 @@ pub mod errors;
 pub mod instructions;
 use instructions::*;
 // Replace with your own program id after `anchor build` + `anchor keys list`
-declare_id!("5FfxQzVa58zNo4xFTHLzwCdmdgnxxVCujdwkSkQxLBDn");
+declare_id!("12ET83PFMoQeCdRwhTnbSKN9rHWSEafVeVLoJA2JYFuP");
 
 #[program]
 pub mod rwa_tokenization {

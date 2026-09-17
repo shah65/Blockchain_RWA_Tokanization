@@ -1,21 +1,39 @@
 // ============================================================================
 // src/components/ProtectedRoute.jsx
-// Blocks a route until the user has the required role.
+// Blocks a route until:
+//   1. the user is signed in, AND
+//   2. their profile is complete, AND
+//   3. their role matches allowedRole.
 // ============================================================================
-import { Navigate } from "react-router-dom";
-import { useRole } from "../hooks/useRole.js";
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export default function ProtectedRoute({ allowedRole, children }) {
-  const { role, hasRole } = useRole();
+  const { profile } = useAuth();
+  const location = useLocation();
 
-  // No profile / no role yet → back to role selection.
-  if (!hasRole) return <Navigate to="/" replace />;
+  // Not signed in → back to role select.
+  if (!profile) return <Navigate to="/" replace />;
 
-  // Wrong role → send them to their own dashboard.
-  if (role !== allowedRole) {
+  // Signed in but profile metadata is incomplete → force the form.
+  const profileComplete = Boolean(
+    profile.full_name && profile.full_name.trim()
+  );
+  if (!profileComplete) {
     return (
       <Navigate
-        to={role === "business_owner" ? "/owner" : "/investor"}
+        to="/complete-profile"
+        replace
+        state={{ from: location.pathname }}
+      />
+    );
+  }
+
+  // Wrong role → send to their own dashboard.
+  if (profile.role !== allowedRole) {
+    return (
+      <Navigate
+        to={profile.role === "business_owner" ? "/owner" : "/investor"}
         replace
       />
     );

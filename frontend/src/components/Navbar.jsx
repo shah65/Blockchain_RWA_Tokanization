@@ -5,7 +5,6 @@ import { Link, NavLink } from "react-router-dom";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { useAuth } from "../context/AuthContext";
 
-// --- Inline icons (no icon library needed) --------------------------------
 function Icon({ name, size = 18 }) {
   const p = {
     width: size,
@@ -35,9 +34,13 @@ function Icon({ name, size = 18 }) {
         </svg>
       );
     case "plus":
+      return <svg {...p}><path d="M12 5v14M5 12h14" /></svg>;
+    case "users":
       return (
         <svg {...p}>
-          <path d="M12 5v14M5 12h14" />
+          <path d="M16 20a4 4 0 0 0-8 0" />
+          <circle cx="12" cy="10" r="3.5" />
+          <path d="M20 20a4 4 0 0 0-3-3.87M4 20a4 4 0 0 1 3-3.87" />
         </svg>
       );
     case "store":
@@ -48,9 +51,12 @@ function Icon({ name, size = 18 }) {
         </svg>
       );
     case "chart":
+      return <svg {...p}><path d="M3 20h18M6 20V10M11 20V4M16 20v-7M21 20v-4" /></svg>;
+    case "calendar":
       return (
         <svg {...p}>
-          <path d="M3 20h18M6 20V10M11 20V4M16 20v-7M21 20v-4" />
+          <rect x="3" y="5" width="18" height="16" rx="2.5" />
+          <path d="M3 10h18M8 3v4M16 3v4" />
         </svg>
       );
     case "logout":
@@ -64,7 +70,6 @@ function Icon({ name, size = 18 }) {
   }
 }
 
-// --- A single nav link with icon + active state ---------------------------
 function NavItem({ to, icon, children }) {
   return (
     <NavLink
@@ -87,54 +92,35 @@ export default function Navbar() {
   return (
     <header className="nav-shell">
       <nav className="nav-inner">
-        {/* Left: brand */}
         <Link to="/" className="nav-brand">
-          <span className="nav-brand-mark">
-            <Icon name="logo" />
-          </span>
+          <span className="nav-brand-mark"><Icon name="logo" /></span>
           <span className="nav-brand-text">
             RWA
             <small>Tokenization</small>
           </span>
         </Link>
 
-        {/* Center: role-specific links */}
         <div className="nav-links">
           {ready && role === "business_owner" && (
             <>
-              <NavItem to="/owner" icon="grid">
-                Dashboard
-              </NavItem>
-              {/* <NavItem to="/owner/create-business" icon="plus">
-                New Business
-              </NavItem> */}
+              <NavItem to="/owner" icon="grid">Dashboard</NavItem>
+              <NavItem to="/owner/investors" icon="users">Investors</NavItem>
+              <NavItem to="/owner/deposits" icon="calendar">Deposits</NavItem>
             </>
           )}
 
           {ready && role === "investor" && (
             <>
-              <NavItem to="/investor" icon="grid">
-                Dashboard
-              </NavItem>
-              <NavItem to="/investor/marketplace" icon="store">
-                Marketplace
-              </NavItem>
-              <NavItem to="/investor/portfolio" icon="chart">
-                Portfolio
-              </NavItem>
+              <NavItem to="/investor" icon="grid">Dashboard</NavItem>
+              <NavItem to="/investor/marketplace" icon="store">Marketplace</NavItem>
+              <NavItem to="/investor/portfolio" icon="chart">Portfolio</NavItem>
             </>
           )}
         </div>
 
-        {/* Right: wallet + logout */}
         <div className="nav-actions">
           <WalletMultiButton className="nav-wallet" />
-          <button
-            type="button"
-            className="nav-logout"
-            onClick={logout}
-            title="Log out"
-          >
+          <button type="button" className="nav-logout" onClick={logout} title="Log out">
             <Icon name="logout" size={16} />
             <span>Logout</span>
           </button>

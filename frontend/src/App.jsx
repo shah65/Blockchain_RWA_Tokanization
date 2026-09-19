@@ -1,26 +1,33 @@
+// ============================================================================
+// src/App.jsx
+// ============================================================================
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RoleSelectScreen from "./components/RoleSelectionScreen";
 import ProfileForm from "./components/ProfileForm";
-import Navbar from "./components/Navbar";  
+import Navbar from "./components/Navbar";
 import Spinner from "./components/Spinner";
 import OwnerDashboard from "./pages/owner/OwnerDashboard";
 import CreateBusinessPage from "./pages/owner/CreateBusinessPage";
 import DepositProfitPage from "./pages/owner/DepositProfitPage";
+import InvestorsPage from "./pages/owner/InvestersPage";
 import InvestorDashboard from "./pages/investor/InvestorDashboard";
 import MarketplacePage from "./pages/investor/MarketPlacePage";
 import PortfolioPage from "./pages/investor/PortfolioPage";
+import DepositsHistoryPage from "./pages/investor/DepositsHistoryPage";
 
 export default function App() {
-  const { connected, profile, isReady } = useAuth();
+  const { profile, isReady } = useAuth();
+
   if (!isReady) return <Spinner label="Loading session..." />;
 
   return (
     <div className="app-shell">
-      { profile && <Navbar />}
+      {profile && <Navbar />}
       <main className="app-main">
         <Routes>
+          {/* ---------- Public entry ---------- */}
           <Route
             path="/"
             element={
@@ -37,10 +44,13 @@ export default function App() {
             }
           />
 
-          {/* Shown exactly once, at this route. NOT inside any ProtectedRoute. */}
-          <Route path="/complete-profile" element={<ProfileForm />} />
+          {/* Profile completion — requires a session, but not a role yet */}
+          <Route
+            path="/complete-profile"
+            element={profile ? <ProfileForm /> : <Navigate to="/" replace />}
+          />
 
-          {/* --- Business owner area --- */}
+          {/* ---------- Business owner ---------- */}
           <Route
             path="/owner"
             element={
@@ -58,6 +68,14 @@ export default function App() {
             }
           />
           <Route
+            path="/owner/investors"
+            element={
+              <ProtectedRoute allowedRole="business_owner">
+                <InvestorsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/owner/deposit-profit/:businessPubkey"
             element={
               <ProtectedRoute allowedRole="business_owner">
@@ -66,7 +84,16 @@ export default function App() {
             }
           />
 
-          {/* --- Investor area --- */}
+          <Route
+            path="/owner/deposits"
+            element={
+              <ProtectedRoute allowedRole="business_owner">
+                <DepositsHistoryPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ---------- Investor ---------- */}
           <Route
             path="/investor"
             element={

@@ -27,6 +27,11 @@
         },
         {
           "name": "investor_profile",
+          "docs": [
+            "Created lazily on the investor's first purchase. Anchor will create",
+            "this PDA if it doesn't exist and charge the investor for rent."
+          ],
+          "writable": true,
           "pda": {
             "seeds": [
               {

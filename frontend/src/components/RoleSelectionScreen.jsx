@@ -1,7 +1,7 @@
 // ============================================================================
 // src/components/RoleSelectionScreen.jsx
 // ============================================================================
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
@@ -42,27 +42,35 @@ function Reveal({ children, delay = 0, className = "" }) {
 }
 
 // ---------------------------------------------------------------------------
-// Tilt card
+// Tilt + cursor-tracked glow card
 // ---------------------------------------------------------------------------
 function TiltCard({ children, onClick, disabled }) {
   const ref = useRef(null);
-  function onMove(e) {
+  const raf = useRef(0);
+
+  const onMove = useCallback((e) => {
     const el = ref.current;
     if (!el) return;
-    const r = el.getBoundingClientRect();
-    const x = (e.clientX - r.left) / r.width;
-    const y = (e.clientY - r.top) / r.height;
-    el.style.setProperty("--rx", `${(0.5 - y) * 12}deg`);
-    el.style.setProperty("--ry", `${(x - 0.5) * 12}deg`);
-    el.style.setProperty("--mx", `${x * 100}%`);
-    el.style.setProperty("--my", `${y * 100}%`);
-  }
-  function onLeave() {
+    if (raf.current) cancelAnimationFrame(raf.current);
+    raf.current = requestAnimationFrame(() => {
+      const r = el.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width;
+      const y = (e.clientY - r.top) / r.height;
+      el.style.setProperty("--rx", `${(0.5 - y) * 10}deg`);
+      el.style.setProperty("--ry", `${(x - 0.5) * 10}deg`);
+      el.style.setProperty("--mx", `${x * 100}%`);
+      el.style.setProperty("--my", `${y * 100}%`);
+    });
+  }, []);
+
+  const onLeave = useCallback(() => {
     const el = ref.current;
     if (!el) return;
+    cancelAnimationFrame(raf.current);
     el.style.setProperty("--rx", "0deg");
     el.style.setProperty("--ry", "0deg");
-  }
+  }, []);
+
   return (
     <button
       ref={ref}
@@ -78,23 +86,41 @@ function TiltCard({ children, onClick, disabled }) {
 }
 
 export default function RoleSelectScreen() {
-  const { publicKey} = useWallet();
+  const { publicKey } = useWallet();
   const { setVisible } = useWalletModal();
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [pendingRole, setPendingRole] = useState(null);
 
-  // Scroll progress of the hero (0 = at top, 1 = scrolled past hero)
+  // Smooth hero scroll progress — interpolated via rAF so it never jitters
   const [heroProgress, setHeroProgress] = useState(0);
+  const [pageProgress, setPageProgress] = useState(0);
+  const targetRef = useRef(0);
+  const currentRef = useRef(0);
+  const rafRef = useRef(0);
+
   useEffect(() => {
     function onScroll() {
       const h = window.innerHeight;
-      setHeroProgress(Math.min(1, window.scrollY / h));
+      targetRef.current = Math.min(1, window.scrollY / h);
+      const doc = document.documentElement;
+      const max = doc.scrollHeight - doc.clientHeight;
+      setPageProgress(max > 0 ? window.scrollY / max : 0);
+    }
+    function tick() {
+      // Critically-damped interpolation → buttery smooth
+      currentRef.current += (targetRef.current - currentRef.current) * 0.12;
+      setHeroProgress(currentRef.current);
+      rafRef.current = requestAnimationFrame(tick);
     }
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(rafRef.current);
+    };
   }, []);
 
   async function handleChooseRole(role) {
@@ -114,17 +140,11 @@ export default function RoleSelectScreen() {
       setBusy(false);
     }
   }
+
   if (busy) {
     return (
       <div className="rs-busy">
-        <video
-          className="rs-busy-video"
-          src={video}
-          autoPlay
-          muted
-          loop
-          playsInline
-        />
+        <video className="rs-busy-video" src={video} autoPlay muted loop playsInline />
         <div className="rs-busy-overlay" />
         <Spinner
           label={`Setting up your ${pendingRole === "business_owner" ? "business owner" : "investor"
@@ -136,9 +156,19 @@ export default function RoleSelectScreen() {
 
   return (
     <div className="rs-page">
-     
+      {/* Top scroll progress bar */}
+      <div className="rs-progress" aria-hidden>
+        <div className="rs-progress-bar" style={{ transform: `scaleX(${pageProgress})` }} />
+      </div>
+
       <section className="rs-hero">
-        {/* Fixed background video, only on this page */}
+        {/* Aurora background blobs (lightning layer) */}
+        <div className="rs-aurora" aria-hidden>
+          <span className="rs-orb rs-orb-1" />
+          <span className="rs-orb rs-orb-2" />
+          <span className="rs-orb rs-orb-3" />
+        </div>
+
         <video
           className="rs-hero-video"
           src={video}
@@ -147,29 +177,26 @@ export default function RoleSelectScreen() {
           loop
           playsInline
           preload="auto"
+          style={{
+            transform: `scale(${1 + heroProgress * 0.08})`,
+            opacity: 1 - heroProgress * 0.5,
+          }}
         />
         <div className="rs-hero-video-overlay" />
 
-        {/* Foreground content — fades and lifts as heroProgress increases */}
         <div
           className="rs-hero-inner"
           style={{
-            opacity: 1 - heroProgress * 1.2,
-            transform: `translateY(${heroProgress * -60}px)`,
+            opacity: 1 - heroProgress * 1.15,
+            transform: `translateY(${heroProgress * -70}px) scale(${1 - heroProgress * 0.02})`,
           }}
         >
           <Reveal>
-            <span className="rs-badge">RWA Tokenization Platform</span>
+            <span className="rs-badge">
+              <span className="rs-badge-dot" />
+              RWA Tokenization Platform
+            </span>
           </Reveal>
-
-        
-
-          {/* <Reveal delay={160}>
-            <p className="rs-subtitle">
-              Tokenize your business, or invest in businesses that already have.
-              The choice is permanent for this wallet.
-            </p>
-          </Reveal> */}
 
           <Reveal delay={280}>
             <a href="#choose" className="rs-scroll-cue">
@@ -180,10 +207,13 @@ export default function RoleSelectScreen() {
             </a>
           </Reveal>
         </div>
+
+        {/* Bottom fade into next section */}
+        <div className="rs-hero-fade" aria-hidden />
       </section>
 
       {/* ============================================================
-          SECTION 2 — HOW IT WORKS (features, no video)
+          SECTION 2 — HOW IT WORKS
           ============================================================ */}
       <section className="rs-split">
         <div className="rs-split-inner">
@@ -212,7 +242,6 @@ export default function RoleSelectScreen() {
             </ul>
           </Reveal>
 
-          {/* Right side is a decorative stat panel */}
           <Reveal className="rs-split-panel" delay={200}>
             <div className="rs-stat-card">
               <span className="rs-stat-label">Escrow vaults</span>
@@ -247,11 +276,9 @@ export default function RoleSelectScreen() {
 
         <div className="rs-cards">
           <Reveal delay={100}>
-            <TiltCard
-              onClick={() => handleChooseRole("business_owner")}
-              disabled={busy}
-            >
-              <div className="role-card-glow" />
+            <TiltCard onClick={() => handleChooseRole("business_owner")} disabled={busy}>
+              <div className="role-card-border" aria-hidden />
+              <div className="role-card-glow" aria-hidden />
               <div className="role-card-inner">
                 <div className="role-card-icon role-card-icon-owner">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -274,11 +301,9 @@ export default function RoleSelectScreen() {
           </Reveal>
 
           <Reveal delay={220}>
-            <TiltCard
-              onClick={() => handleChooseRole("investor")}
-              disabled={busy}
-            >
-              <div className="role-card-glow" />
+            <TiltCard onClick={() => handleChooseRole("investor")} disabled={busy}>
+              <div className="role-card-border" aria-hidden />
+              <div className="role-card-glow" aria-hidden />
               <div className="role-card-inner">
                 <div className="role-card-icon role-card-icon-investor">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">

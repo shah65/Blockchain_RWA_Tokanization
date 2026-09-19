@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { api } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
+import ClaimableProfit from "../../components/ClaimedProfit";
 
 // ---------------------------------------------------------------------------
 // Icons
@@ -252,6 +253,10 @@ export default function InvestorDashboard() {
             pulse
           />
         </div>
+
+
+        {/* Claimable profit — its own full-width block */}
+        <ClaimableProfit />
 
         {/* Action flip cards */}
         <div className="iv-actions">

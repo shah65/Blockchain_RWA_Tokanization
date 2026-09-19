@@ -1,4 +1,4 @@
-
+// backend/src/models/business.model.js
 const { supabaseAdmin } = require("../config/supabase");
 
 async function createBusinessRecord({
@@ -67,9 +67,53 @@ async function listBusinessesByOwner(ownerWallet) {
   return data;
 }
 
+async function updateTokensSold(onchainPubkey, tokensSold) {
+  const { error } = await supabaseAdmin
+    .from("businesses")
+    .update({
+      tokens_sold: tokensSold,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("onchain_pubkey", onchainPubkey);
+
+  if (error) throw error;
+}
+
+async function upsertProfitDeposit({
+  onchainPubkey,
+  businessPubkey,
+  year,
+  month,
+  totalDeposited,
+  totalClaimed,
+  investorShareBps,
+}) {
+  const { data, error } = await supabaseAdmin
+    .from("profit_deposits_cache")
+    .upsert(
+      {
+        onchain_pubkey: onchainPubkey,
+        business_pubkey: businessPubkey,
+        year,
+        month,
+        total_deposited: totalDeposited,
+        total_claimed: totalClaimed,
+        investor_share_bps: investorShareBps,
+        last_synced_at: new Date().toISOString(),
+      },
+      { onConflict: "business_pubkey,year,month" }
+    )
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
 module.exports = {
+  upsertProfitDeposit,
   createBusinessRecord,
   listActiveBusinesses,
   getBusinessByPubkey,
   listBusinessesByOwner,
+  updateTokensSold,
 };

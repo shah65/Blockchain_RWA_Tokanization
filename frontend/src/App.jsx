@@ -1,21 +1,23 @@
-// ============================================================================
-// src/App.jsx
-// ============================================================================
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RoleSelectScreen from "./components/RoleSelectionScreen";
 import ProfileForm from "./components/ProfileForm";
+import KYC from "./pages/KYC.jsx";
+import Profile from "./pages/Profile.jsx";
+import KYCReview from "./pages/admin/KYCReview.jsx";
 import Navbar from "./components/Navbar";
 import Spinner from "./components/Spinner";
 import OwnerDashboard from "./pages/owner/OwnerDashboard";
 import CreateBusinessPage from "./pages/owner/CreateBusinessPage";
 import DepositProfitPage from "./pages/owner/DepositProfitPage";
+import FrozenAccounts from "./pages/admin/FrozenAccounts";
 import InvestorsPage from "./pages/owner/InvestersPage";
 import InvestorDashboard from "./pages/investor/InvestorDashboard";
 import MarketplacePage from "./pages/investor/MarketPlacePage";
 import PortfolioPage from "./pages/investor/PortfolioPage";
 import DepositsHistoryPage from "./pages/investor/DepositsHistoryPage";
+import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 
 export default function App() {
   const { profile, isReady } = useAuth();
@@ -64,6 +66,64 @@ export default function App() {
             element={
               <ProtectedRoute allowedRole="business_owner">
                 <CreateBusinessPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requireAdmin>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requireAdmin>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/kyc"
+            element={
+              <ProtectedRoute requireAdmin>
+                <KYCReview />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/frozen"
+            element={
+              <ProtectedRoute requireAdmin>
+                <FrozenAccounts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kyc"
+            element={
+              <ProtectedRoute>
+                <KYC />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/kyc"
+            element={
+              <ProtectedRoute requireAdmin>
+                <KYCReview />
+              </ProtectedRoute>
+            }
+          />
+
+
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             }
           />

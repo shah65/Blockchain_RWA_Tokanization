@@ -65,6 +65,25 @@ function Icon({ name, size = 18 }) {
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
         </svg>
       );
+    case "shield":
+      return (
+        <svg {...p}>
+          <path d="M12 3 4 6v6c0 4.5 3.4 8.6 8 9 4.6-.4 8-4.5 8-9V6l-8-3Z" />
+        </svg>
+      );
+    case "lock":
+      return (
+        <svg {...p}>
+          <rect x="4" y="11" width="16" height="10" rx="2" />
+          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+        </svg>
+      );
+    case "inbox":
+      return (
+        <svg {...p}>
+          <path d="M4 13h4l2 3h4l2-3h4M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" />
+        </svg>
+      );
     default:
       return null;
   }
@@ -101,6 +120,7 @@ export default function Navbar() {
         </Link>
 
         <div className="nav-links">
+          {/* ---------- Business owner links ---------- */}
           {ready && role === "business_owner" && (
             <>
               <NavItem to="/owner" icon="grid">Dashboard</NavItem>
@@ -109,11 +129,21 @@ export default function Navbar() {
             </>
           )}
 
+          {/* ---------- Investor links ---------- */}
           {ready && role === "investor" && (
             <>
               <NavItem to="/investor" icon="grid">Dashboard</NavItem>
               <NavItem to="/investor/marketplace" icon="store">Marketplace</NavItem>
               <NavItem to="/investor/portfolio" icon="chart">Portfolio</NavItem>
+            </>
+          )}
+
+          {/* ---------- Admin links — render regardless of role / readiness ---------- */}
+          {profile?.is_admin && (
+            <>
+              <NavItem to="/admin" icon="shield" end>Admin</NavItem>
+              <NavItem to="/admin/kyc" icon="inbox">KYC Review</NavItem>
+              <NavItem to="/admin/frozen" icon="lock">Frozen</NavItem>
             </>
           )}
         </div>

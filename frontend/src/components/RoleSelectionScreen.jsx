@@ -85,13 +85,18 @@ function TiltCard({ children, onClick, disabled }) {
   );
 }
 
+// ============================================================================
+// Main component
+// ============================================================================
 export default function RoleSelectScreen() {
   const { publicKey } = useWallet();
   const { setVisible } = useWalletModal();
   const { signIn } = useAuth();
   const navigate = useNavigate();
+
   const [busy, setBusy] = useState(false);
   const [pendingRole, setPendingRole] = useState(null);
+  const [adminRevealed, setAdminRevealed] = useState(false);
 
   // Smooth hero scroll progress — interpolated via rAF so it never jitters
   const [heroProgress, setHeroProgress] = useState(0);
@@ -100,6 +105,7 @@ export default function RoleSelectScreen() {
   const currentRef = useRef(0);
   const rafRef = useRef(0);
 
+  // ---- Effect #1: scroll progress ----
   useEffect(() => {
     function onScroll() {
       const h = window.innerHeight;
@@ -123,6 +129,30 @@ export default function RoleSelectScreen() {
     };
   }, []);
 
+  // ---- Effect #2: admin reveal ----
+  useEffect(() => {
+    // Trigger 1: URL query param ?admin=1
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("admin") === "1") {
+      setAdminRevealed(true);
+      return;
+    }
+
+    // Trigger 2: type the word "admin" anywhere
+    let buffer = "";
+    function onKey(e) {
+      if (e.key.length !== 1) return;
+      buffer = (buffer + e.key.toLowerCase()).slice(-5);
+      if (buffer === "admin") {
+        setAdminRevealed(true);
+        buffer = "";
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // ---- Handler (not a hook) ----
   async function handleChooseRole(role) {
     setPendingRole(role);
     if (!publicKey) {
@@ -132,15 +162,30 @@ export default function RoleSelectScreen() {
     setBusy(true);
     try {
       const profile = await signIn(role);
-      navigate(profile?.full_name ? "/" : "/complete-profile");
+
+      if (role === "admin") {
+        navigate("/admin");
+        return;
+      }
+      if (profile?.full_name) {
+        navigate("/");
+      } else {
+        navigate("/complete-profile");
+      }
     } catch (err) {
       console.error("[RoleSelect] failed:", err);
-      toast.error(err?.message || "Something went wrong. Please try again.");
+      // Surface the backend's 403 for non-admin wallets
+      const msg =
+        err?.response?.data?.error ||
+        err?.message ||
+        "Something went wrong. Please try again.";
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
   }
 
+  // ---- Early return (AFTER all hooks) ----
   if (busy) {
     return (
       <div className="rs-busy">
@@ -158,7 +203,10 @@ export default function RoleSelectScreen() {
     <div className="rs-page">
       {/* Top scroll progress bar */}
       <div className="rs-progress" aria-hidden>
-        <div className="rs-progress-bar" style={{ transform: `scaleX(${pageProgress})` }} />
+        <div
+          className="rs-progress-bar"
+          style={{ transform: `scaleX(${pageProgress})` }}
+        />
       </div>
 
       <section className="rs-hero">
@@ -188,7 +236,8 @@ export default function RoleSelectScreen() {
           className="rs-hero-inner"
           style={{
             opacity: 1 - heroProgress * 1.15,
-            transform: `translateY(${heroProgress * -70}px) scale(${1 - heroProgress * 0.02})`,
+            transform: `translateY(${heroProgress * -70}px) scale(${1 - heroProgress * 0.02
+              })`,
           }}
         >
           <Reveal>
@@ -201,8 +250,19 @@ export default function RoleSelectScreen() {
           <Reveal delay={280}>
             <a href="#choose" className="rs-scroll-cue">
               <span>Scroll to begin</span>
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 5v14M6 13l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path
+                  d="M12 5v14M6 13l6 6 6-6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </a>
           </Reveal>
@@ -268,21 +328,34 @@ export default function RoleSelectScreen() {
             <span className="rs-eyebrow">Get started</span>
             <h2 className="rs-choose-title">Choose your role</h2>
             <p className="rs-choose-sub">
-              This decision is permanent for this wallet. Pick the path that
-              matches what you're here to do.
+              {adminRevealed
+                ? "Admin access detected. Choose carefully — actions are logged."
+                : "This decision is permanent for this wallet. Pick the path that matches what you're here to do."}
             </p>
           </div>
         </Reveal>
 
         <div className="rs-cards">
           <Reveal delay={100}>
-            <TiltCard onClick={() => handleChooseRole("business_owner")} disabled={busy}>
+            <TiltCard
+              onClick={() => handleChooseRole("business_owner")}
+              disabled={busy}
+            >
               <div className="role-card-border" aria-hidden />
               <div className="role-card-glow" aria-hidden />
               <div className="role-card-inner">
                 <div className="role-card-icon role-card-icon-owner">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                    <path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01" strokeLinecap="round" strokeLinejoin="round" />
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  >
+                    <path
+                      d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </div>
                 <h3 className="role-card-title">I'm a Business Owner</h3>
@@ -292,8 +365,19 @@ export default function RoleSelectScreen() {
                 </p>
                 <span className="role-card-cta">
                   Continue
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                    <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    width="16"
+                    height="16"
+                  >
+                    <path
+                      d="M5 12h14M13 6l6 6-6 6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </span>
               </div>
@@ -301,13 +385,25 @@ export default function RoleSelectScreen() {
           </Reveal>
 
           <Reveal delay={220}>
-            <TiltCard onClick={() => handleChooseRole("investor")} disabled={busy}>
+            <TiltCard
+              onClick={() => handleChooseRole("investor")}
+              disabled={busy}
+            >
               <div className="role-card-border" aria-hidden />
               <div className="role-card-glow" aria-hidden />
               <div className="role-card-inner">
                 <div className="role-card-icon role-card-icon-investor">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                    <path d="M3 17l6-6 4 4 8-8M14 7h7v7" strokeLinecap="round" strokeLinejoin="round" />
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  >
+                    <path
+                      d="M3 17l6-6 4 4 8-8M14 7h7v7"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </div>
                 <h3 className="role-card-title">I'm an Investor</h3>
@@ -317,13 +413,77 @@ export default function RoleSelectScreen() {
                 </p>
                 <span className="role-card-cta">
                   Continue
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                    <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    width="16"
+                    height="16"
+                  >
+                    <path
+                      d="M5 12h14M13 6l6 6-6 6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </span>
               </div>
             </TiltCard>
           </Reveal>
+
+          {adminRevealed && (
+            <Reveal delay={320}>
+              <TiltCard
+                onClick={() => handleChooseRole("admin")}
+                disabled={busy}
+              >
+                <div className="role-card-border" aria-hidden />
+                <div className="role-card-glow" aria-hidden />
+                <div className="role-card-inner role-card-inner-admin">
+                  <div className="role-card-icon role-card-icon-admin">
+                    {/* Shield with key icon */}
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                    >
+                      <path
+                        d="M12 3 4 6v6c0 4.5 3.4 8.6 8 9 4.6-.4 8-4.5 8-9V6l-8-3Z"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <circle cx="12" cy="11" r="2" />
+                      <path d="M12 13v3M11 15h2" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                  <h3 className="role-card-title">Admin Access</h3>
+                  <p className="role-card-desc">
+                    Review identity verifications, freeze suspicious accounts,
+                    and inspect the owner / investor experiences.
+                  </p>
+                  <span className="role-card-cta role-card-cta-admin">
+                    Authenticate
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      width="16"
+                      height="16"
+                    >
+                      <path
+                        d="M5 12h14M13 6l6 6-6 6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                </div>
+              </TiltCard>
+            </Reveal>
+          )}
         </div>
 
         <Reveal delay={320}>

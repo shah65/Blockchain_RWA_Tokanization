@@ -1,14 +1,7 @@
-// ============================================================================
-// src/components/ProtectedRoute.jsx
-// Blocks a route until:
-//   1. the user is signed in, AND
-//   2. their profile is complete, AND
-//   3. their role matches allowedRole.
-// ============================================================================
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-export default function ProtectedRoute({ allowedRole, children }) {
+export default function ProtectedRoute({ allowedRole, requireAdmin,children }) {
   const { profile } = useAuth();
   const location = useLocation();
 
@@ -29,14 +22,23 @@ export default function ProtectedRoute({ allowedRole, children }) {
     );
   }
 
-  // Wrong role → send to their own dashboard.
-  if (profile.role !== allowedRole) {
+  // Admins can see any role's UI (view-as / preview mode)
+  if (
+    allowedRole &&
+    !profile.is_admin &&
+    profile.role !== allowedRole
+  ) {
     return (
       <Navigate
         to={profile.role === "business_owner" ? "/owner" : "/investor"}
         replace
       />
     );
+  }
+
+  // ✅ Non-admins get bounced away from admin-only routes
+  if (requireAdmin && !profile.is_admin) {
+    return <Navigate to="/" replace />;
   }
 
   return children;

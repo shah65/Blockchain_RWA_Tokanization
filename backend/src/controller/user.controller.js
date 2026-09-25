@@ -26,18 +26,25 @@ const getNonce = asyncHandler(async (req, res) => {
   res.json({ message });
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/auth/verify
-// Body: { walletAddress, signature, role }
-// 1. Check the nonce exists for this wallet.
-// 2. Verify the signature.
-// 3. Create the profile row if it's a first-time wallet.
-// 4. Issue a JWT.
-// 5. Return { token, profile }.
-// ---------------------------------------------------------------------------
+
+
+const ADMIN_WALLET = (process.env.ADMIN_WALLETS || "")
+    .split(",")
+    .map((w) => w.trim())
+    .filter(Boolean)
+
 const verifySignature = asyncHandler(async (req, res) => {
   const { walletAddress, signature, role } = req.body;
 
+
+  const isAdminWallet = ADMIN_WALLET.includes(walletAddress);
+
+  if (role === "admin" && !isAdminWallet){
+    return res.status(403).json({
+      error:"This wallet is not authorized for admin access!",
+    });
+  }
+  
   // Role must be one of the two allowed values. We store it on first login.
   const safeRole =
     role === "business_owner" || role === "investor" ? role : "investor";

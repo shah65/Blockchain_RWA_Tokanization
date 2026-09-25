@@ -6,6 +6,10 @@ import { Link } from "react-router-dom";
 import { api } from "../../config/api";
 import toast from "react-hot-toast";
 
+import KYCBadge from "../../components/KYCBadge";
+import { useAuthContext } from "../../context/AuthContext";
+import "../KYC.css";
+
 // ---------------------------------------------------------------------------
 // Icons
 // ---------------------------------------------------------------------------
@@ -40,8 +44,7 @@ function Icon({ name, size = 18 }) {
 }
 
 // ---------------------------------------------------------------------------
-// Animated number counter — counts up when the value changes.
-// Uses requestAnimationFrame; no dependencies.
+// Animated counter
 // ---------------------------------------------------------------------------
 function Counter({ value, duration = 800, format = (n) => Math.round(n).toLocaleString() }) {
   const [display, setDisplay] = useState(0);
@@ -54,7 +57,6 @@ function Counter({ value, duration = 800, format = (n) => Math.round(n).toLocale
 
     function tick(now) {
       const t = Math.min(1, (now - start) / duration);
-      // ease-out cubic
       const eased = 1 - Math.pow(1 - t, 3);
       setDisplay(from + (to - from) * eased);
       if (t < 1) rafRef.current = requestAnimationFrame(tick);
@@ -89,7 +91,7 @@ function StatTile({ icon, label, value, suffix, prefix, accent = "violet" }) {
 }
 
 // ---------------------------------------------------------------------------
-// Copy button — copies text to clipboard with a transient "copied" state.
+// Copy button
 // ---------------------------------------------------------------------------
 function CopyButton({ text, label = "Copy address" }) {
   const [copied, setCopied] = useState(false);
@@ -121,9 +123,9 @@ function CopyButton({ text, label = "Copy address" }) {
 }
 
 // ---------------------------------------------------------------------------
-// Business card
+// Business card (local to this file — no separate BusinessCard.jsx needed)
 // ---------------------------------------------------------------------------
-function BusinessCard({ business, index }) {
+function OwnerBusinessCard({ business, index, kycApproved }) {
   const tokensSold = Number(business.tokens_sold || 0);
   const totalTokens = Number(business.total_tokens || 0);
   const ratio = totalTokens > 0 ? Math.min(1, tokensSold / totalTokens) : 0;
@@ -135,10 +137,7 @@ function BusinessCard({ business, index }) {
     : "—";
 
   return (
-    <div
-      className="od-card"
-      style={{ "--delay": `${index * 60}ms` }}
-    >
+    <div className="od-card" style={{ "--delay": `${index * 60}ms` }}>
       <div className="od-card-cover">
         <div className="od-card-cover-grad" aria-hidden />
         <span className="od-card-badge">{business.category || "Business"}</span>
@@ -179,6 +178,8 @@ function BusinessCard({ business, index }) {
           <Link
             to={`/owner/deposit-profit/${business.onchain_pubkey}`}
             className="od-action od-action-primary"
+            onClick={(e) => { if (!kycApproved) { e.preventDefault(); toast.error("Complete KYC before depositing profit"); } }}
+            style={!kycApproved ? { opacity: 0.5, pointerEvents: "none" } : undefined}
           >
             <Icon name="deposit" size={15} />
             Deposit profit
@@ -190,7 +191,7 @@ function BusinessCard({ business, index }) {
 }
 
 // ---------------------------------------------------------------------------
-// Skeleton (loading state) — shimmering placeholders
+// Skeleton
 // ---------------------------------------------------------------------------
 function SkeletonCard() {
   return (
@@ -211,6 +212,10 @@ function SkeletonCard() {
 // Page
 // ---------------------------------------------------------------------------
 export default function OwnerDashboard() {
+  const { profile } = useAuthContext();
+  const kycStatus = profile?.kyc_status || "not_started";
+  const kycApproved = kycStatus === "approved";
+
   const [businesses, setBusinesses] = useState(null);
 
   useEffect(() => {
@@ -219,14 +224,13 @@ export default function OwnerDashboard() {
       .then(({ data }) => setBusinesses(data.businesses))
       .catch(() => {
         toast.error("Could not load your businesses.");
-        setBusinesses([]);   // fall through to empty state, don't hang
+        setBusinesses([]);
       });
   }, []);
 
-  // Aggregate stats for the top strip
   const stats = useMemo(() => {
     if (!businesses) return { count: 0, shares: 0, raise: 0 };
-    const count = businesses.length;
+    let count = businesses.length;
     let shares = 0;
     let raise = 0;
     for (const b of businesses) {
@@ -262,27 +266,38 @@ export default function OwnerDashboard() {
           </Link>
         </header>
 
+        {/* KYC gate banner — INSIDE the component now */}
+        {!kycApproved && (
+          <div className="kyc-gate-banner">
+            <div>
+              <KYCBadge status={kycStatus} />
+              <h3>
+                {kycStatus === "pending"
+                  ? "KYC under review"
+                  : kycStatus === "rejected"
+                    ? "KYC rejected — please resubmit"
+                    : "Complete KYC to list your businesses"}
+              </h3>
+              <p>
+                Investors only see verified businesses. Verification usually
+                takes less than 24 hours.
+              </p>
+            </div>
+            <Link to="/kyc" className="kyc-btn-primary">
+              {kycStatus === "pending"
+                ? "View status"
+                : kycStatus === "rejected"
+                  ? "Resubmit"
+                  : "Verify now"}
+            </Link>
+          </div>
+        )}
+
         {/* Stat strip */}
         <div className="od-stats">
-          <StatTile
-            icon="grid"
-            label="Businesses"
-            value={stats.count}
-            accent="violet"
-          />
-          <StatTile
-            icon="coins"
-            label="Shares issued"
-            value={stats.shares}
-            accent="cyan"
-          />
-          <StatTile
-            icon="trend"
-            label="Potential raise"
-            value={stats.raise}
-            prefix="$"
-            accent="indigo"
-          />
+          <StatTile icon="grid" label="Businesses" value={stats.count} accent="violet" />
+          <StatTile icon="coins" label="Shares issued" value={stats.shares} accent="cyan" />
+          <StatTile icon="trend" label="Potential raise" value={stats.raise} prefix="$" accent="indigo" />
         </div>
 
         {/* Content */}
@@ -294,9 +309,7 @@ export default function OwnerDashboard() {
           </div>
         ) : businesses.length === 0 ? (
           <div className="od-empty">
-            <div className="od-empty-icon">
-              <Icon name="spark" size={32} />
-            </div>
+            <div className="od-empty-icon"><Icon name="spark" size={32} /></div>
             <h2>No businesses yet</h2>
             <p>
               When you create your first business, it will show up here with
@@ -310,7 +323,12 @@ export default function OwnerDashboard() {
         ) : (
           <div className="od-grid">
             {businesses.map((b, i) => (
-              <BusinessCard key={b.onchain_pubkey} business={b} index={i} />
+              <OwnerBusinessCard
+                key={b.onchain_pubkey}
+                business={b}
+                index={i}
+                kycApproved={kycApproved}
+              />
             ))}
           </div>
         )}

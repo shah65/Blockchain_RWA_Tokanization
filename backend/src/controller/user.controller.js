@@ -4,16 +4,12 @@ const { verifyWalletSignature, issueJwt } = require("../middleware/auth");
 const asyncHandler = require("../utils/asyncHandler");
 
 // ---------------------------------------------------------------------------
-// Simple in-memory nonce store.
-// Fine for local dev with ONE server process. For production, use Redis or a
-// `nonces` table in Supabase. Otherwise a second server instance will not see
-// the nonce and every login will fail.
+// Simple in-memory nonce store (single-process dev only).
 // ---------------------------------------------------------------------------
 const nonceStore = new Map();
 
 // ---------------------------------------------------------------------------
 // GET /api/auth/nonce?wallet=<address>
-// Returns a random message the wallet needs to sign.
 // ---------------------------------------------------------------------------
 const getNonce = asyncHandler(async (req, res) => {
   const { wallet } = req.query;
@@ -26,48 +22,54 @@ const getNonce = asyncHandler(async (req, res) => {
   res.json({ message });
 });
 
+// ---------------------------------------------------------------------------
+// Admin allowlist — renamed to plural for consistency.                   // ← CHANGED
+// ---------------------------------------------------------------------------
+const ADMIN_WALLETS = (process.env.ADMIN_WALLETS || "")
+  .split(",")
+  .map((w) => w.trim())
+  .filter(Boolean);
 
-
-const ADMIN_WALLET = (process.env.ADMIN_WALLETS || "")
-    .split(",")
-    .map((w) => w.trim())
-    .filter(Boolean)
-
+// ---------------------------------------------------------------------------
+// POST /api/auth/verify
+// ---------------------------------------------------------------------------
 const verifySignature = asyncHandler(async (req, res) => {
   const { walletAddress, signature, role } = req.body;
 
-
-  const isAdminWallet = ADMIN_WALLET.includes(walletAddress);
-
-  if (role === "admin" && !isAdminWallet){
-    return res.status(403).json({
-      error:"This wallet is not authorized for admin access!",
-    });
-  }
-  
-  // Role must be one of the two allowed values. We store it on first login.
-  const safeRole =
-    role === "business_owner" || role === "investor" ? role : "investor";
-
+  // 1. Nonce must exist BEFORE we bother verifying the signature.
   const message = nonceStore.get(walletAddress);
   if (!message) {
     return res.status(400).json({ error: "No pending nonce for this wallet" });
   }
 
+  // 2. Verify the signature.
   const isValid = verifyWalletSignature({ walletAddress, signature, message });
   if (!isValid) {
     return res.status(401).json({ error: "Signature verification failed" });
   }
 
-  // Nonce can only be used once.
   nonceStore.delete(walletAddress);
 
-  // First-time wallet → creates a row with just wallet_address + role.
-  // Returning wallet → returns the existing row unchanged.
-  const profile = await userModel.createProfileIfMissing(
-    walletAddress,
-    safeRole
-  );
+  // 3. Resolve the persisted role.                                     // ← CHANGED
+  //    Admin wallets ALWAYS become 'admin'. The client cannot downgrade
+  //    an admin, and cannot self-promote to admin.
+  const isAdminWallet = ADMIN_WALLETS.includes(walletAddress);
+
+  let safeRole;
+  if (isAdminWallet) {
+    safeRole = "admin";
+  } else if (role === "business_owner" || role === "investor") {
+    safeRole = role;
+  } else {
+    safeRole = "investor";
+  }
+
+  // 4. Insert-if-missing, then promote legacy rows that predate the role.
+  let profile = await userModel.createProfileIfMissing(walletAddress, safeRole);
+
+  if (isAdminWallet && profile.role !== "admin") {
+    profile = await userModel.updateRole(walletAddress, "admin");
+  }
 
   const token = issueJwt(walletAddress);
   res.json({ token, profile });
@@ -81,11 +83,13 @@ const getMyProfile = asyncHandler(async (req, res) => {
   res.json({ profile });
 });
 
+// ---------------------------------------------------------------------------
+// PUT /api/users/profile  (requires auth)
+// ---------------------------------------------------------------------------
 const saveProfile = asyncHandler(async (req, res) => {
-  // Fetch existing so we don't lose required columns on upsert.
   const existing = await userModel.getProfileByWallet(req.walletAddress);
 
-  // Never let the client overwrite these.
+  // Never let the client overwrite these fields.
   const {
     wallet_address: _w,
     role: _r,
@@ -93,13 +97,14 @@ const saveProfile = asyncHandler(async (req, res) => {
     id: _i,
     created_at: _c,
     updated_at: _u,
+    is_admin: _a,
     ...safeFields
   } = req.body;
 
   const payload = {
     ...safeFields,
     wallet_address: req.walletAddress,
-    role: existing?.role || "investor",   // always a valid value
+    role: existing?.role || "investor",
   };
 
   const profile = await userModel.upsertProfile(req.walletAddress, payload);

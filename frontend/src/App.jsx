@@ -1,3 +1,4 @@
+// src/App.jsx
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -29,54 +30,28 @@ export default function App() {
       {profile && <Navbar />}
       <main className="app-main">
         <Routes>
-          {/* ---------- Public entry ---------- */}
+          {/* ============================================================
+              "/" ALWAYS renders the role selection screen.
+              No auto-redirect. Navigation only happens when the user
+              clicks a card inside RoleSelectScreen.               // ← CHANGED
+             ============================================================ */}
+          <Route path="/" element={<RoleSelectScreen />} />
+
+          {/* Profile completion — required for owner/investor, skipped for admin */}
           <Route
-            path="/"
+            path="/complete-profile"
             element={
               !profile ? (
-                <RoleSelectScreen />
-              ) : !profile.full_name ? (
-                <Navigate to="/complete-profile" replace />
+                <Navigate to="/" replace />
+              ) : profile.is_admin ? (
+                <Navigate to="/admin" replace />
               ) : (
-                <Navigate
-                  to={profile.role === "business_owner" ? "/owner" : "/investor"}
-                  replace
-                />
+                <ProfileForm />
               )
             }
           />
 
-          {/* Profile completion — requires a session, but not a role yet */}
-          <Route
-            path="/complete-profile"
-            element={profile ? <ProfileForm /> : <Navigate to="/" replace />}
-          />
-
-          {/* ---------- Business owner ---------- */}
-          <Route
-            path="/owner"
-            element={
-              <ProtectedRoute allowedRole="business_owner">
-                <OwnerDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/owner/create-business"
-            element={
-              <ProtectedRoute allowedRole="business_owner">
-                <CreateBusinessPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute requireAdmin>
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
-          />
+          {/* ---------- Admin ---------- */}
           <Route
             path="/admin"
             element={
@@ -101,83 +76,22 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/kyc"
-            element={
-              <ProtectedRoute>
-                <KYC />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/kyc"
-            element={
-              <ProtectedRoute requireAdmin>
-                <KYCReview />
-              </ProtectedRoute>
-            }
-          />
 
-
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/owner/investors"
-            element={
-              <ProtectedRoute allowedRole="business_owner">
-                <InvestorsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/owner/deposit-profit/:businessPubkey"
-            element={
-              <ProtectedRoute allowedRole="business_owner">
-                <DepositProfitPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/owner/deposits"
-            element={
-              <ProtectedRoute allowedRole="business_owner">
-                <DepositsHistoryPage />
-              </ProtectedRoute>
-            }
-          />
+          {/* ---------- Business owner ---------- */}
+          <Route path="/owner" element={<ProtectedRoute allowedRole="business_owner"><OwnerDashboard /></ProtectedRoute>} />
+          <Route path="/owner/create-business" element={<ProtectedRoute allowedRole="business_owner"><CreateBusinessPage /></ProtectedRoute>} />
+          <Route path="/owner/investors" element={<ProtectedRoute allowedRole="business_owner"><InvestorsPage /></ProtectedRoute>} />
+          <Route path="/owner/deposit-profit/:businessPubkey" element={<ProtectedRoute allowedRole="business_owner"><DepositProfitPage /></ProtectedRoute>} />
+          <Route path="/owner/deposits" element={<ProtectedRoute allowedRole="business_owner"><DepositsHistoryPage /></ProtectedRoute>} />
 
           {/* ---------- Investor ---------- */}
-          <Route
-            path="/investor"
-            element={
-              <ProtectedRoute allowedRole="investor">
-                <InvestorDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/investor/marketplace"
-            element={
-              <ProtectedRoute allowedRole="investor">
-                <MarketplacePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/investor/portfolio"
-            element={
-              <ProtectedRoute allowedRole="investor">
-                <PortfolioPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/investor" element={<ProtectedRoute allowedRole="investor"><InvestorDashboard /></ProtectedRoute>} />
+          <Route path="/investor/marketplace" element={<ProtectedRoute allowedRole="investor"><MarketplacePage /></ProtectedRoute>} />
+          <Route path="/investor/portfolio" element={<ProtectedRoute allowedRole="investor"><PortfolioPage /></ProtectedRoute>} />
+
+          {/* ---------- Shared ---------- */}
+          <Route path="/kyc" element={<ProtectedRoute><KYC /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -151,6 +151,14 @@ const decide = asyncHandler(async (req, res) => {
   res.json({ profile: updated });
 });
 
+const listByStatus = asyncHandler(async (req, res) => {
+  const { status = "pending" } = req.query;
+  if (!["pending", "approved", "rejected"].includes(status)) {
+    throw new BadRequestError("Invalid status");
+  }
+  const profiles = await userModel.listKycByStatus(status);
+  res.json({ profiles });
+});
 
 
-module.exports = {submitKyc, getKycStatus, listPending, getSignedUrlForKyc, decide };
+module.exports = { submitKyc, getKycStatus, listPending, getSignedUrlForKyc, decide, listByStatus };

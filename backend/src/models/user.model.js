@@ -3,9 +3,14 @@ const { supabaseAdmin } = require("../config/supabase");
 const ADMIN_WALLETS = (process.env.ADMIN_WALLETS || "")
   .split(",").map((w) => w.trim()).filter(Boolean);
 
+
+  
 function withAdminFlag(profile) {
   if (!profile) return profile;
-  return { ...profile, is_admin: ADMIN_WALLETS.includes(profile.wallet_address) };
+  const isAdmin =
+    profile.role === "admin" ||
+    ADMIN_WALLETS.includes(profile.wallet_address);
+  return { ...profile, is_admin: isAdmin };
 }
 
 async function getProfileByWallet(walletAddress) {
@@ -45,18 +50,26 @@ async function createProfileIfMissing(walletAddress, role = "investor") {
   return withAdminFlag(data);
 }
 
-async function upsertProfile(walletAddress, { role, fullName, email, phoneNumber, address, avatarUrl }) {
+async function upsertProfile(walletAddress, fields) {
+  const { role: _ignoredRole, ...safeFields } = fields || {};
+
+  const { data: existing } = await supabaseAdmin
+    .from("profiles")
+    .select("role")
+    .eq("wallet_address", walletAddress)
+    .maybeSingle();
+
+  const preservedRole =
+    existing?.role ||
+    (ADMIN_WALLETS.includes(walletAddress) ? "admin" : "investor");
+
   const { data, error } = await supabaseAdmin
     .from("profiles")
     .upsert(
       {
+        ...safeFields,
         wallet_address: walletAddress,
-        role,
-        full_name: fullName,
-        email,
-        phone_number: phoneNumber,
-        address,
-        avatar_url: avatarUrl,
+        role: preservedRole,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "wallet_address" }
@@ -164,6 +177,43 @@ async function listPendingKyc() {
   if (error) throw error;
   return data;
 }
+async function updateRole(walletAddress, role) {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .update({ role, updated_at: new Date().toISOString() })
+    .eq("wallet_address", walletAddress)
+    .select()
+    .single();
+  if (error) throw error;
+  return withAdminFlag(data);
+}
+async function listKycByStatus(status) {
+  let q = supabaseAdmin
+    .from("profiles")
+    .select(
+      [
+        "wallet_address", "role", "full_name",
+        "kyc_status", "kyc_submitted_at", "kyc_reviewed_at",
+        "kyc_rejection_reason", "kyc_reviewer_wallet",
+        "kyc_full_name", "kyc_dob", "kyc_country",
+        "kyc_id_type", "kyc_id_number",
+        "kyc_issue_date", "kyc_expiry_date",
+        "kyc_issuing_country", "kyc_issuing_authority", "kyc_address",
+        "kyc_document_url", "kyc_document_back_url",
+        "kyc_selfie_url", "kyc_selfie_frames",
+      ].join(", ")
+    )
+    .eq("kyc_status", status)
+    .order("kyc_submitted_at", { ascending: false });
+
+  if (status === "pending") {
+    q = q.not("kyc_submitted_at", "is", null);
+  }
+
+  const { data, error } = await q;
+  if (error) throw error;
+  return data;
+}
 
 module.exports = {
   getProfileByWallet,
@@ -172,5 +222,7 @@ module.exports = {
   setKycStatus,
   submitKyc,
   setKycDecision,
+  listKycByStatus,
   listPendingKyc,
+  updateRole,     // ← add
 };

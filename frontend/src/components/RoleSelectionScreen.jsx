@@ -91,7 +91,8 @@ function TiltCard({ children, onClick, disabled }) {
 export default function RoleSelectScreen() {
   const { publicKey } = useWallet();
   const { setVisible } = useWalletModal();
-  const { signIn } = useAuth();
+  // ← CHANGED: extend the destructure to include everything the banner needs.
+  const { signIn, profile, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
   const [busy, setBusy] = useState(false);
@@ -115,7 +116,6 @@ export default function RoleSelectScreen() {
       setPageProgress(max > 0 ? window.scrollY / max : 0);
     }
     function tick() {
-      // Critically-damped interpolation → buttery smooth
       currentRef.current += (targetRef.current - currentRef.current) * 0.12;
       setHeroProgress(currentRef.current);
       rafRef.current = requestAnimationFrame(tick);
@@ -131,14 +131,11 @@ export default function RoleSelectScreen() {
 
   // ---- Effect #2: admin reveal ----
   useEffect(() => {
-    // Trigger 1: URL query param ?admin=1
     const params = new URLSearchParams(window.location.search);
     if (params.get("admin") === "1") {
       setAdminRevealed(true);
       return;
     }
-
-    // Trigger 2: type the word "admin" anywhere
     let buffer = "";
     function onKey(e) {
       if (e.key.length !== 1) return;
@@ -155,26 +152,38 @@ export default function RoleSelectScreen() {
   // ---- Handler (not a hook) ----
   async function handleChooseRole(role) {
     setPendingRole(role);
+
     if (!publicKey) {
       setVisible(true);
       return;
     }
+
     setBusy(true);
     try {
       const profile = await signIn(role);
 
-      if (role === "admin") {
-        navigate("/admin");
+      if (role === "admin" || profile?.is_admin || profile?.role === "admin") {
+        navigate("/admin", { replace: true });
         return;
       }
-      if (profile?.full_name) {
-        navigate("/");
+
+      if (profile?.role === "business_owner") {
+        if (!profile.full_name) {
+          navigate("/complete-profile", { replace: true });
+        } else {
+          navigate("/owner", { replace: true });
+        }
+        return;
+      }
+
+      // investor (default)
+      if (!profile?.full_name) {
+        navigate("/complete-profile", { replace: true });
       } else {
-        navigate("/complete-profile");
+        navigate("/investor", { replace: true });
       }
     } catch (err) {
       console.error("[RoleSelect] failed:", err);
-      // Surface the backend's 403 for non-admin wallets
       const msg =
         err?.response?.data?.error ||
         err?.message ||
@@ -201,6 +210,76 @@ export default function RoleSelectScreen() {
 
   return (
     <div className="rs-page">
+      {/* ============================================================
+          SIGNED-IN BANNER — shown when a session already exists.
+          ← CHANGED: this used to live at module scope. It now lives
+          inside the component's returned JSX, at the very top.
+         ============================================================ */}
+      {isAuthenticated && profile && (
+        <div
+          className="rs-signed-in-banner"
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 50,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 20px",
+            background: "linear-gradient(90deg, #4c1d95 0%, #1e3a8a 100%)",
+            color: "#fff",
+            fontSize: 14,
+          }}
+        >
+          <span>
+            Signed in as{" "}
+            <strong>
+              {profile.full_name ||
+                `${profile.wallet_address.slice(0, 6)}…`}
+            </strong>{" "}
+            · <span style={{ opacity: 0.8 }}>{profile.role}</span>
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className="rs-btn-continue"
+              onClick={() =>
+                navigate(
+                  profile.is_admin
+                    ? "/admin"
+                    : profile.role === "business_owner"
+                      ? "/owner"
+                      : "/investor"
+                )
+              }
+              style={{
+                padding: "6px 14px",
+                borderRadius: 8,
+                border: "1px solid rgba(255,255,255,0.35)",
+                background: "rgba(255,255,255,0.12)",
+                color: "#fff",
+                cursor: "pointer",
+                fontWeight: 600,
+              }}
+            >
+              Continue →
+            </button>
+            <button
+              onClick={logout}
+              style={{
+                padding: "6px 14px",
+                borderRadius: 8,
+                border: "1px solid rgba(255,255,255,0.35)",
+                background: "transparent",
+                color: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top scroll progress bar */}
       <div className="rs-progress" aria-hidden>
         <div
@@ -210,7 +289,6 @@ export default function RoleSelectScreen() {
       </div>
 
       <section className="rs-hero">
-        {/* Aurora background blobs (lightning layer) */}
         <div className="rs-aurora" aria-hidden>
           <span className="rs-orb rs-orb-1" />
           <span className="rs-orb rs-orb-2" />
@@ -268,13 +346,10 @@ export default function RoleSelectScreen() {
           </Reveal>
         </div>
 
-        {/* Bottom fade into next section */}
         <div className="rs-hero-fade" aria-hidden />
       </section>
 
-      {/* ============================================================
-          SECTION 2 — HOW IT WORKS
-          ============================================================ */}
+      {/* SECTION 2 — HOW IT WORKS */}
       <section className="rs-split">
         <div className="rs-split-inner">
           <Reveal className="rs-split-copy" delay={120}>
@@ -319,9 +394,7 @@ export default function RoleSelectScreen() {
         </div>
       </section>
 
-      {/* ============================================================
-          SECTION 3 — CHOOSE YOUR ROLE
-          ============================================================ */}
+      {/* SECTION 3 — CHOOSE YOUR ROLE */}
       <section id="choose" className="rs-choose">
         <Reveal>
           <div className="rs-choose-header">
@@ -442,7 +515,6 @@ export default function RoleSelectScreen() {
                 <div className="role-card-glow" aria-hidden />
                 <div className="role-card-inner role-card-inner-admin">
                   <div className="role-card-icon role-card-icon-admin">
-                    {/* Shield with key icon */}
                     <svg
                       viewBox="0 0 24 24"
                       fill="none"

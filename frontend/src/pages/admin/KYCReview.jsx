@@ -33,7 +33,8 @@ function ReviewCard({ row, onApprove, onReject, onViewDoc }) {
             {row.kyc_submitted_at && new Date(row.kyc_submitted_at).toLocaleString()}
           </span>
         </div>
-        <KYCBadge status="pending" size="sm" showLabel={false} />
+        <KYCBadge status={row.kyc_status} size="sm" showLabel={false} />
+
       </button>
 
       {open && (
@@ -103,16 +104,19 @@ function ReviewCard({ row, onApprove, onReject, onViewDoc }) {
 
 export default function KYCReview() {
   const qc = useQueryClient();
+  const [tab, setTab] = useState("pending");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["kyc-pending"],
-    queryFn: () => api.get("/admin/kyc/pending").then((r) => r.data.pending),
+    queryKey: ["kyc-list",tab],
+    queryFn: () => api.get(`/admin/kyc/list?status=${tab}`)
+      .then((r) => r.data.profiles || []),
   });
 
   const decide = useMutation({
     mutationFn: (payload) => api.post("/admin/kyc/decide", payload),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["kyc-pending"] });
+      qc.invalidateQueries({ queryKey: ["kyc-list"] });
+      qc.invalidateQueries({ queryKey: ["kyc-pending-count"] });
       toast.success("Decision recorded");
     },
     onError: (e) =>
@@ -128,6 +132,11 @@ export default function KYCReview() {
     } catch (e) {
       toast.error(e?.response?.data?.error?.message || e.message);
     }
+    const tabs = [
+      { id: "pending", label: "Pending" },
+      { id: "approved", label: "Approved" },
+      { id: "rejected", label: "Rejected" },
+    ];
   }
 
   return (
@@ -135,19 +144,30 @@ export default function KYCReview() {
       <div className="kyc-header">
         <div>
           <span className="kyc-eyebrow">Admin</span>
-          <h1 className="kyc-title">KYC Review Queue</h1>
+          <h1 className="kyc-title">KYC Review</h1>
           <p className="kyc-sub">
-            Pending identity verifications. Click a card to see the submitted
-            fields and open the documents side-by-side.
+            Review submitted identity verifications. Click a card to expand it.
           </p>
         </div>
+      </div>
+
+      <div className="kr-tabs" style={{ display: "flex", gap: 8, margin: "16px 0" }}>
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={tab === t.id ? "kyc-btn-primary" : "kyc-btn-ghost"}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {isLoading && <p style={{ color: "rgba(255,255,255,0.6)" }}>Loading…</p>}
 
       {!isLoading && (!data || data.length === 0) && (
         <p style={{ color: "rgba(255,255,255,0.6)" }}>
-          No pending submissions.
+          No {tab} submissions.
         </p>
       )}
 
@@ -156,12 +176,14 @@ export default function KYCReview() {
           <ReviewCard
             key={row.wallet_address}
             row={row}
-            onApprove={(w) => decide.mutate({ walletAddress: w, status: "approved" })}
+            onApprove={(w) =>
+              decide.mutate({ walletAddress: w, status: "approved" })
+            }
             onReject={(w, r) =>
               decide.mutate({ walletAddress: w, status: "rejected", reason: r })
             }
-            onViewDoc={(w , field) => viewDoc(w, field)}
-           />
+            onViewDoc={(w, field) => viewDoc(w, field)}
+          />
         ))}
       </div>
     </div>

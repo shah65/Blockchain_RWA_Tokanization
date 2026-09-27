@@ -5,12 +5,13 @@ const { requireAuth } = require("../middleware/auth");
 const requireAdmin = require("../middleware/requireAdmin");
 const { authLimiter } = require("../middleware/rateLimiter");
 
-// User endpoints
+// --- User endpoints -------------------------------------------------------
 router.get("/users/kyc/status", requireAuth, kyc.getKycStatus);
 router.post("/users/kyc", authLimiter, requireAuth, kyc.submitKyc);
 
-// Admin endpoints
+// --- Admin endpoints ------------------------------------------------------
 router.get("/admin/kyc/pending", requireAuth, requireAdmin, kyc.listPending);
+router.get("/admin/kyc/list", requireAuth, requireAdmin, kyc.listByStatus);
 router.get("/admin/kyc/signed-url", requireAuth, requireAdmin, kyc.getSignedUrlForKyc);
 router.post("/admin/kyc/decide", requireAuth, requireAdmin, kyc.decide);
 

@@ -42,6 +42,13 @@ function Icon({ name, size = 18 }) {
       return <svg {...p}><circle cx="9" cy="21" r="1.4" /><circle cx="19" cy="21" r="1.4" /><path d="M3 3h2l2.4 12h12L22 7H6" /></svg>;
     case "shield":
       return <svg {...p}><path d="M12 3 4 6v6c0 4.5 3.4 8.6 8 9 4.6-.4 8-4.5 8-9V6l-8-3Z" /></svg>;
+    case "shield-check":
+      return (
+        <svg {...p}>
+          <path d="M12 3 4 6v6c0 4.5 3.4 8.6 8 9 4.6-.4 8-4.5 8-9V6l-8-3Z" />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+      );
     default:
       return null;
   }
@@ -58,6 +65,25 @@ const SORTS = [
   { id: "price-desc", label: "Price ↓" },
   { id: "raise-desc", label: "Biggest raise" },
 ];
+
+// ---------------------------------------------------------------------------
+// Verified-owner pill — used on the card and in the drawer
+// ---------------------------------------------------------------------------
+function VerifiedBadge({ business, large = false }) {
+  if (!business?.owner_kyc_verified) return null;
+
+  return (
+    <div className={`mk-verified ${large ? "mk-verified-lg" : ""}`}>
+      <Icon name="shield-check" size={large ? 14 : 12} />
+      <span>{large ? "Owner identity verified" : "Verified owner"}</span>
+      {business.owner_profile?.full_name && (
+        <span className="mk-verified-name">
+          · {business.owner_profile.full_name}
+        </span>
+      )}
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Business card
@@ -91,6 +117,9 @@ function BusinessCard({ business, onBuy, index }) {
 
       <div className="mk-body">
         <h3 className="mk-name">{business.name}</h3>
+
+        <VerifiedBadge business={business} />
+
         <p className="mk-desc">{business.description || "No description."}</p>
 
         {business.location && (
@@ -184,6 +213,9 @@ function BuyDrawer({ business, onClose, onSubmit, submitting }) {
         </div>
 
         <h2 className="mk-drawer-title">{business.name}</h2>
+
+        <VerifiedBadge business={business} large />
+
         <p className="mk-drawer-desc">{business.description}</p>
 
         <div className="mk-drawer-stats">

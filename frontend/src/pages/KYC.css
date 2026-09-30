@@ -958,47 +958,6 @@
 
 
 
-
-
-
-
-.admin-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
-  margin-top: 24px;
-}
-
-.admin-card {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 22px 22px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015));
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  text-decoration: none;
-  color: inherit;
-  transition: border-color 0.2s ease, transform 0.15s ease;
-}
-
-.admin-card:hover {
-  border-color: rgba(220, 38, 38, 0.45);
-  transform: translateY(-2px);
-}
-
-.admin-card-icon {
-  flex-shrink: 0;
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-}
-
 .admin-card-icon-crimson {
   background: linear-gradient(135deg, #dc2626, #f59e0b);
   box-shadow: 0 12px 30px -12px rgba(220, 38, 38, 0.9);

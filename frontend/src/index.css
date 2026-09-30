@@ -2952,8 +2952,14 @@ button:disabled {
     transform: none;
   }
 }
-
-
+/* KYC badge on the owner's business card cover */
+/* KYC badge on the owner's business card cover */
+.od-card-kyc {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  z-index: 2;
+}
 
 
 
@@ -4489,6 +4495,48 @@ button:disabled {
     animation: none;
   }
 }
+/* Verified owner pill on marketplace cards */
+.mk-verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #6ee7b7;
+  background: linear-gradient(180deg,
+      rgba(16, 185, 129, 0.14),
+      rgba(16, 185, 129, 0.04));
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  margin-bottom: -4px;
+}
+
+.mk-verified svg {
+  flex-shrink: 0;
+  color: #34d399;
+}
+
+.mk-verified-name {
+  color: rgba(110, 231, 183, 0.75);
+  font-weight: 500;
+  margin-left: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.mk-verified-lg {
+  font-size: 0.78rem;
+  padding: 6px 12px;
+  margin-bottom: 12px;
+}
+
+
+
+
 
 
 

@@ -125,7 +125,7 @@
   // ---------------------------------------------------------------------------
   // Business card (local to this file — no separate BusinessCard.jsx needed)
   // ---------------------------------------------------------------------------
-  function OwnerBusinessCard({ business, index, kycApproved }) {
+function OwnerBusinessCard({ business, index, kycApproved, kycStatus }) {      
     const tokensSold = Number(business.tokens_sold || 0);
     const totalTokens = Number(business.total_tokens || 0);
     const ratio = totalTokens > 0 ? Math.min(1, tokensSold / totalTokens) : 0;
@@ -141,6 +141,12 @@
         <div className="od-card-cover">
           <div className="od-card-cover-grad" aria-hidden />
           <span className="od-card-badge">{business.category || "Business"}</span>
+
+          {/* KYC badge — visible to the owner as a status indicator */}
+          <span className="od-card-kyc" title="Your KYC status for this business">
+            <KYCBadge status={kycStatus || "not_started"} size="sm" />
+          </span>
+
           <span className="od-card-address" title={business.onchain_pubkey}>
             <span>{shortAddr}</span>
             <CopyButton text={business.onchain_pubkey || ""} />
@@ -300,6 +306,7 @@
             <StatTile icon="trend" label="Potential raise" value={stats.raise} prefix="$" accent="indigo" />
           </div>
 
+           
           {/* Content */}
           {businesses === null ? (
             <div className="od-grid">
@@ -322,14 +329,15 @@
             </div>
           ) : (
             <div className="od-grid">
-              {businesses.map((b, i) => (
-                <OwnerBusinessCard
-                  key={b.onchain_pubkey}
-                  business={b}
-                  index={i}
-                  kycApproved={kycApproved}
-                />
-              ))}
+                  {businesses.map((b, i) => (
+                    <OwnerBusinessCard
+                      key={b.onchain_pubkey}
+                      business={b}
+                      index={i}
+                      kycApproved={kycApproved}
+                      kycStatus={kycStatus}
+                    />
+                  ))}
             </div>
           )}
         </div>

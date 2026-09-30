@@ -5,6 +5,13 @@ import toast from "react-hot-toast";
 import KYCBadge from "../../components/KYCBadge";
 import "../KYC.css";
 
+// Tabs — defined at module scope so they're available everywhere
+const TABS = [
+  { id: "pending", label: "Pending" },
+  { id: "approved", label: "Approved" },
+  { id: "rejected", label: "Rejected" },
+];
+
 function fmtDate(v) {
   return v ? new Date(v).toLocaleDateString() : "—";
 }
@@ -30,18 +37,21 @@ function ReviewCard({ row, onApprove, onReject, onViewDoc }) {
           <strong>{row.kyc_full_name || row.full_name || "—"}</strong>
           <span className="kr-card-sub">
             {row.kyc_id_type} · {row.kyc_country} ·{" "}
-            {row.kyc_submitted_at && new Date(row.kyc_submitted_at).toLocaleString()}
+            {row.kyc_submitted_at &&
+              new Date(row.kyc_submitted_at).toLocaleString()}
           </span>
         </div>
         <KYCBadge status={row.kyc_status} size="sm" showLabel={false} />
-
       </button>
 
       {open && (
         <div className="kr-card-body">
-          {/* --- Common fields --- */}
           <div className="kr-grid">
-            <Field label="Wallet" value={`${row.wallet_address.slice(0, 6)}…${row.wallet_address.slice(-4)}`} mono />
+            <Field
+              label="Wallet"
+              value={`${row.wallet_address.slice(0, 6)}…${row.wallet_address.slice(-4)}`}
+              mono
+            />
             <Field label="Role" value={row.role} />
             <Field label="Full legal name" value={row.kyc_full_name} />
             <Field label="Date of birth" value={fmtDate(row.kyc_dob)} />
@@ -51,7 +61,6 @@ function ReviewCard({ row, onApprove, onReject, onViewDoc }) {
             <Field label="Issue date" value={fmtDate(row.kyc_issue_date)} />
             <Field label="Expiry date" value={fmtDate(row.kyc_expiry_date)} />
 
-            {/* --- Conditional fields, only shown if present --- */}
             {row.kyc_id_type === "passport" && (
               <Field label="Issuing country" value={row.kyc_issuing_country} />
             )}
@@ -63,22 +72,29 @@ function ReviewCard({ row, onApprove, onReject, onViewDoc }) {
             )}
           </div>
 
-          {/* --- Documents --- */}
           <div className="kr-docs">
-            <button className="kr-doc-btn" onClick={() => onViewDoc(row.wallet_address, "document")}>
+            <button
+              className="kr-doc-btn"
+              onClick={() => onViewDoc(row.wallet_address, "document")}
+            >
               View {row.kyc_id_type === "passport" ? "passport" : "front"}
             </button>
             {row.kyc_document_back_url && (
-              <button className="kr-doc-btn" onClick={() => onViewDoc(row.wallet_address, "document_back")}>
+              <button
+                className="kr-doc-btn"
+                onClick={() => onViewDoc(row.wallet_address, "document_back")}
+              >
                 View back
               </button>
             )}
-            <button className="kr-doc-btn" onClick={() => onViewDoc(row.wallet_address, "selfie")}>
+            <button
+              className="kr-doc-btn"
+              onClick={() => onViewDoc(row.wallet_address, "selfie")}
+            >
               View selfie
             </button>
           </div>
 
-          {/* --- Decision buttons --- */}
           <div className="kr-actions">
             <button
               className="kr-approve"
@@ -107,9 +123,9 @@ export default function KYCReview() {
   const [tab, setTab] = useState("pending");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["kyc-list",tab],
-    queryFn: () => api.get(`/admin/kyc/list?status=${tab}`)
-      .then((r) => r.data.profiles || []),
+    queryKey: ["kyc-list", tab],
+    queryFn: () =>
+      api.get(`/admin/kyc/list?status=${tab}`).then((r) => r.data.profiles || []),
   });
 
   const decide = useMutation({
@@ -132,11 +148,6 @@ export default function KYCReview() {
     } catch (e) {
       toast.error(e?.response?.data?.error?.message || e.message);
     }
-    const tabs = [
-      { id: "pending", label: "Pending" },
-      { id: "approved", label: "Approved" },
-      { id: "rejected", label: "Rejected" },
-    ];
   }
 
   return (
@@ -151,8 +162,11 @@ export default function KYCReview() {
         </div>
       </div>
 
-      <div className="kr-tabs" style={{ display: "flex", gap: 8, margin: "16px 0" }}>
-        {tabs.map((t) => (
+      <div
+        className="kr-tabs"
+        style={{ display: "flex", gap: 8, margin: "16px 0" }}
+      >
+        {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
@@ -163,7 +177,9 @@ export default function KYCReview() {
         ))}
       </div>
 
-      {isLoading && <p style={{ color: "rgba(255,255,255,0.6)" }}>Loading…</p>}
+      {isLoading && (
+        <p style={{ color: "rgba(255,255,255,0.6)" }}>Loading…</p>
+      )}
 
       {!isLoading && (!data || data.length === 0) && (
         <p style={{ color: "rgba(255,255,255,0.6)" }}>

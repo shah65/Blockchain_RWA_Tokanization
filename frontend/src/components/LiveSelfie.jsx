@@ -1,51 +1,50 @@
 // ============================================================================
 // src/components/LiveSelfie.jsx
-// Real-time selfie capture with liveness challenges.
-// Uses @vladmandic/face-api for face + landmark detection.
+// Front-facing capture is required; left/right are optional extras.
 // ============================================================================
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as faceapi from "@vladmandic/face-api";
 
 const MODEL_URL = "/models/face-api";
 
+// ---------------------------------------------------------------------------
+// 3 challenges.
+//   required: true  → must be captured before the parent sees a result
+//   required: false → optional; user can skip or capture at will
+// ---------------------------------------------------------------------------
 const CHALLENGES = [
   {
-    id: "center",
-    label: "Center your face in the oval",
-    hint: "Look straight at the camera",
-    validate: ({ yaw, pitch }, size) =>
-      Math.abs(yaw) < 0.18 && pitch > 0.30 && pitch < 0.60 && size > 0.25,
-  },
-  {
-    id: "blink",
-    label: "Blink your eyes",
-    hint: "Slow, natural blink",
-    validate: ({ ear }) => ear < 0.20,
+    id: "front",
+    icon: "🧑",
+    title: "Front-facing",
+    hint: "Look straight at the camera, whole face inside the oval.",
+    required: true,
+    minProgressToCapture: 0.4,
+    captureThreshold: 1.0,
+    validate: ({ yawRatio, pitchRatio }, size) =>
+      Math.abs(yawRatio - 1.0) < 0.25 &&
+      pitchRatio > 0.25 && pitchRatio < 0.85 &&
+      size > 0.08,
   },
   {
     id: "left",
-    label: "Slowly turn your head LEFT",
-    hint: "Then back to center",
-    validate: ({ yaw }) => yaw > 0.28,
+    icon: "◀️",
+    title: "Turn LEFT (optional)",
+    hint: "Left ear toward the camera, then tap Capture. Or press Next to skip.",
+    required: false,
+    minProgressToCapture: 0.4,
+    captureThreshold: 0.8,   // easier — user can hit Capture before auto-fire
+    validate: ({ yawRatio }) => yawRatio > 1.25,
   },
   {
     id: "right",
-    label: "Slowly turn your head RIGHT",
-    hint: "Then back to center",
-    validate: ({ yaw }) => yaw < -0.28,
-  },
-  {
-    id: "up",
-    label: "Tilt your head UP",
-    hint: "Chin slightly raised",
-    validate: ({ pitch }) => pitch < 0.42,
-  },
-  {
-    id: "final",
-    label: "Look straight — capturing",
-    hint: "Hold still",
-    validate: ({ yaw, pitch }, size) =>
-      Math.abs(yaw) < 0.15 && pitch > 0.35 && pitch < 0.55 && size > 0.30,
+    icon: "▶️",
+    title: "Turn RIGHT (optional)",
+    hint: "Right ear toward the camera, then tap Capture. Or press Finish.",
+    required: false,
+    minProgressToCapture: 0.4,
+    captureThreshold: 0.8,
+    validate: ({ yawRatio }) => yawRatio < 0.80,
   },
 ];
 
@@ -66,21 +65,21 @@ function getEAR(landmarks) {
 
 function getPose(landmarks) {
   const L = landmarks.positions;
-  const leftEye = L[36];
-  const rightEye = L[45];
+  const leftEyeOuter = L[36];
+  const rightEyeOuter = L[45];
   const nose = L[30];
   const chin = L[8];
   const brow = L[27];
 
-  const eyeMidX = (leftEye.x + rightEye.x) / 2;
-  const eyeDist = Math.max(1, dist(leftEye, rightEye));
-  const yaw = (nose.x - eyeMidX) / eyeDist;
+  const dNoseToLeft = Math.max(1, dist(nose, leftEyeOuter));
+  const dNoseToRight = Math.max(1, dist(nose, rightEyeOuter));
+  const yawRatio = dNoseToRight / dNoseToLeft;
 
-  const eyeMidY = (leftEye.y + rightEye.y) / 2;
-  const faceHeight = Math.max(1, dist(brow, chin));
-  const pitch = (nose.y - eyeMidY) / faceHeight;
+  const eyeMidY = (leftEyeOuter.y + rightEyeOuter.y) / 2;
+  const faceSpan = Math.max(1, dist(brow, chin));
+  const pitchRatio = (nose.y - eyeMidY) / faceSpan;
 
-  return { yaw, pitch };
+  return { yawRatio, pitchRatio };
 }
 
 export default function LiveSelfie({ onCapture, onError }) {
@@ -88,16 +87,30 @@ export default function LiveSelfie({ onCapture, onError }) {
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const rafRef = useRef(0);
-  const holdRef = useRef(0); // how many consecutive frames a challenge has held
+  const holdRef = useRef(0);
+  const busyRef = useRef(false);
+  const framesRef = useRef([]); // keep the latest frames for onCapture
 
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(null);
   const [stageIdx, setStageIdx] = useState(0);
-  const [progress, setProgress] = useState(0); // 0..1 progress inside current challenge
-  const [frames, setFrames] = useState([]); // captured JPEG data URLs
+  const [progress, setProgress] = useState(0);
+  const [frames, setFrames] = useState([]);
   const [done, setDone] = useState(false);
+  const [poseReady, setPoseReady] = useState(false);
+  const [showFallback, setShowFallback] = useState(false);
+  const [flash, setFlash] = useState(false);
 
-  // ---- Load models once ----
+  const challenge = CHALLENGES[stageIdx];
+  const frontCaptured = frames.length > 0;
+  const isLastStage = stageIdx === CHALLENGES.length - 1;
+
+  // Keep framesRef in sync so onCapture always sees the newest array
+  useEffect(() => {
+    framesRef.current = frames;
+  }, [frames]);
+
+  // ---- Load models -----------------------------------------------------
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -109,8 +122,10 @@ export default function LiveSelfie({ onCapture, onError }) {
         if (!cancelled) setReady(true);
       } catch (e) {
         console.error("[LiveSelfie] model load failed", e);
-        setError("Could not load face-detection models.");
-        onError?.("models");
+        if (!cancelled) {
+          setError("Could not load face-detection models.");
+          onError?.("models");
+        }
       }
     })();
     return () => {
@@ -118,7 +133,7 @@ export default function LiveSelfie({ onCapture, onError }) {
     };
   }, [onError]);
 
-  // ---- Start webcam once models are ready ----
+  // ---- Start webcam ----------------------------------------------------
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
@@ -127,8 +142,8 @@ export default function LiveSelfie({ onCapture, onError }) {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: "user",
-            width: { ideal: 640 },
-            height: { ideal: 480 },
+            width: { ideal: 720 },
+            height: { ideal: 960 },
           },
           audio: false,
         });
@@ -143,8 +158,10 @@ export default function LiveSelfie({ onCapture, onError }) {
         }
       } catch (e) {
         console.error("[LiveSelfie] getUserMedia failed", e);
-        setError("Camera access denied or unavailable.");
-        onError?.("camera");
+        if (!cancelled) {
+          setError("Camera access denied or unavailable.");
+          onError?.("camera");
+        }
       }
     })();
     return () => {
@@ -154,77 +171,24 @@ export default function LiveSelfie({ onCapture, onError }) {
     };
   }, [ready, onError]);
 
-  // ---- Detection loop ----
-  const tick = useCallback(async () => {
-    const video = videoRef.current;
-    if (!video || video.readyState < 2 || done) {
-      rafRef.current = requestAnimationFrame(tick);
-      return;
-    }
-
-    try {
-      const result = await faceapi
-        .detectSingleFace(
-          video,
-          new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })
-        )
-        .withFaceLandmarks();
-
-      const challenge = CHALLENGES[stageIdx];
-
-      if (result && challenge) {
-        const box = result.detection.box;
-        const videoArea = video.videoWidth * video.videoHeight;
-        const size = (box.width * box.height) / videoArea;
-        const ear = getEAR(result.landmarks);
-        const pose = getPose(result.landmarks);
-
-        const passed = challenge.validate({ ...pose, ear }, size);
-        holdRef.current = passed ? holdRef.current + 1 : 0;
-        const required = challenge.id === "blink" ? 1 : 6;
-        const p = Math.min(1, holdRef.current / required);
-        setProgress(p);
-
-        if (p >= 1) {
-          const snap = captureFrame(video);
-          const nextFrames = [...frames, snap];
-          setFrames(nextFrames);
-          holdRef.current = 0;
-          setProgress(0);
-
-          if (stageIdx + 1 >= CHALLENGES.length) {
-            setDone(true);
-            onCapture({ finalFrame: snap, frames: nextFrames });
-          } else {
-            setStageIdx((i) => i + 1);
-          }
-        }
-      } else {
-        holdRef.current = 0;
-        setProgress(0);
-      }
-    } catch (e) {
-      // Detection errors on individual frames are non-fatal; just log
-      console.warn("[LiveSelfie] detect error", e);
-    }
-
-    rafRef.current = requestAnimationFrame(tick);
-  }, [stageIdx, frames, done, onCapture]);
-
+  // ---- Reset per-stage state ------------------------------------------
   useEffect(() => {
-    if (!ready || error) return;
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [ready, error, tick]);
+    holdRef.current = 0;
+    busyRef.current = false;
+    setProgress(0);
+    setPoseReady(false);
+    setShowFallback(false);
+    const t = setTimeout(() => setShowFallback(true), 15_000);
+    return () => clearTimeout(t);
+  }, [stageIdx]);
 
-  // ---- Draw oval guide ----
-  const captureFrame = (video) => {
+  // ---- Frame capture ---------------------------------------------------
+  const captureFrame = useCallback((video) => {
     const canvas = canvasRef.current || document.createElement("canvas");
     canvas.width = 480;
     canvas.height = 640;
     const ctx = canvas.getContext("2d");
 
-    // Cover-fit the video into a portrait frame, mirrored
     const vw = video.videoWidth;
     const vh = video.videoHeight;
     const scale = Math.max(canvas.width / vw, canvas.height / vh);
@@ -235,23 +199,145 @@ export default function LiveSelfie({ onCapture, onError }) {
 
     ctx.save();
     ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1); // mirror to match what the user saw
+    ctx.scale(-1, 1);
     ctx.drawImage(video, dx, dy, dw, dh);
     ctx.restore();
 
     return canvas.toDataURL("image/jpeg", 0.85);
-  };
+  }, []);
 
-  const challenge = CHALLENGES[stageIdx];
+  // ---- Finish the flow: hand everything to the parent ------------------
+  const finish = useCallback(
+    (nextFrames) => {
+      if (done) return;
+      setDone(true);
+      onCapture({
+        finalFrame: nextFrames[nextFrames.length - 1],
+        frames: nextFrames,
+      });
+    },
+    [done, onCapture]
+  );
 
-  // ---- UI ----
+  // ---- Commit a captured frame and advance (or finish) -----------------
+  const commitFrame = useCallback(
+    (snap) => {
+      if (busyRef.current) return;
+      busyRef.current = true;
+
+      const nextFrames = [...framesRef.current, snap];
+      setFrames(nextFrames);
+      setFlash(true);
+      setTimeout(() => setFlash(false), 180);
+
+      // Last stage → finish. Otherwise advance.
+      if (stageIdx + 1 >= CHALLENGES.length) {
+        setTimeout(() => finish(nextFrames), 240);
+      } else {
+        setTimeout(() => {
+          setStageIdx((i) => i + 1);
+          busyRef.current = false;
+        }, 240);
+      }
+    },
+    [stageIdx, finish]
+  );
+
+  // ---- Detection loop --------------------------------------------------
+  const tick = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video || video.readyState < 2 || done || busyRef.current) {
+      rafRef.current = requestAnimationFrame(tick);
+      return;
+    }
+
+    try {
+      const result = await faceapi
+        .detectSingleFace(
+          video,
+          new faceapi.TinyFaceDetectorOptions({
+            inputSize: 416,
+            scoreThreshold: 0.5,
+          })
+        )
+        .withFaceLandmarks();
+
+      const current = CHALLENGES[stageIdx];
+      if (!current) {
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      if (result) {
+        const box = result.detection.box;
+        const videoArea = video.videoWidth * video.videoHeight;
+        const size = (box.width * box.height) / videoArea;
+        const ear = getEAR(result.landmarks);
+        const pose = getPose(result.landmarks);
+
+        const passed = current.validate({ ...pose, ear }, size);
+        holdRef.current = passed ? holdRef.current + 1 : 0;
+        // Required steps need many confirmations; optional steps auto-fire sooner
+        const requiredFrames = current.required ? 8 : 5;
+        const p = Math.min(1, holdRef.current / requiredFrames);
+        setProgress(p);
+        setPoseReady(p >= current.minProgressToCapture);
+
+        // Auto-capture when progress hits the threshold
+        if (p >= current.captureThreshold) {
+          const snap = captureFrame(video);
+          commitFrame(snap);
+        }
+      } else {
+        holdRef.current = 0;
+        setProgress(0);
+        setPoseReady(false);
+      }
+    } catch (e) {
+      console.warn("[LiveSelfie] detect error", e);
+    }
+
+    rafRef.current = requestAnimationFrame(tick);
+  }, [stageIdx, done, captureFrame, commitFrame]);
+
+  useEffect(() => {
+    if (!ready || error) return;
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [ready, error, tick]);
+
+  // ---- Manual capture (button) ----------------------------------------
+  const handleCapture = useCallback(() => {
+    if (!videoRef.current || done || busyRef.current) return;
+    if (!poseReady) return;
+    const snap = captureFrame(videoRef.current);
+    commitFrame(snap);
+  }, [poseReady, done, captureFrame, commitFrame]);
+
+  // ---- Skip optional step ---------------------------------------------
+  const handleSkip = useCallback(() => {
+    if (challenge?.required) return;      // can't skip required
+    if (isLastStage) {
+      finish(framesRef.current);
+    } else {
+      setStageIdx((i) => i + 1);
+    }
+  }, [challenge, isLastStage, finish]);
+
+  // ---- Finish early (only after front is captured) ---------------------
+  const handleFinishEarly = useCallback(() => {
+    if (!frontCaptured) return;
+    finish(framesRef.current);
+  }, [frontCaptured, finish]);
+
+  // ---- UI states -------------------------------------------------------
   if (error) {
     return (
       <div className="ls-error">
         <p>{error}</p>
         <p className="ls-error-hint">
-          Make sure you've allowed camera access, and that the page is served
-          over HTTPS or localhost.
+          Allow camera access and make sure the page is served over HTTPS or
+          localhost.
         </p>
       </div>
     );
@@ -263,7 +349,30 @@ export default function LiveSelfie({ onCapture, onError }) {
 
   return (
     <div className="ls-wrap">
-      <div className="ls-stage">
+      <div className="ls-topbar">
+        <div className="ls-dots" aria-hidden>
+          {CHALLENGES.map((c, i) => (
+            <span
+              key={c.id}
+              className={
+                i < stageIdx || (i === 0 && frontCaptured)
+                  ? "ls-dot is-done"
+                  : i === stageIdx
+                    ? "ls-dot is-current"
+                    : "ls-dot"
+              }
+              title={c.title}
+            >
+              {i < stageIdx || (i === 0 && frontCaptured) ? "✓" : c.icon}
+            </span>
+          ))}
+        </div>
+        <span className="ls-counter">
+          {stageIdx + 1} / {CHALLENGES.length}
+        </span>
+      </div>
+
+      <div className={`ls-stage ${flash ? "ls-flash" : ""}`}>
         <video
           ref={videoRef}
           className="ls-video"
@@ -271,17 +380,31 @@ export default function LiveSelfie({ onCapture, onError }) {
           muted
           autoPlay
         />
-        <div className="ls-oval" aria-hidden />
+        <div
+          className={`ls-oval ${poseReady ? "ls-oval-active" : ""}`}
+          aria-hidden
+        />
+        {flash && <div className="ls-flash-layer" aria-hidden />}
         {frames.length > 0 && (
           <div className="ls-thumbs">
             {frames.map((f, i) => (
-              <img key={i} src={f} alt={`capture-${i}`} className="ls-thumb" />
+              <img
+                key={i}
+                src={f}
+                alt={`capture-${i}`}
+                className="ls-thumb"
+              />
             ))}
           </div>
         )}
       </div>
 
-      <div className="ls-progress">
+      <div className="ls-instruction">
+        <span className="ls-instruction-icon">{challenge?.icon}</span>
+        <div className="ls-instruction-text">
+          <strong className="ls-instruction-title">{challenge?.title}</strong>
+          <span className="ls-instruction-hint">{challenge?.hint}</span>
+        </div>
         <div className="ls-progress-track">
           <div
             className="ls-progress-fill"
@@ -290,16 +413,45 @@ export default function LiveSelfie({ onCapture, onError }) {
         </div>
       </div>
 
-      <div className="ls-challenge">
-        <span className="ls-step">
-          {stageIdx + 1} / {CHALLENGES.length}
-        </span>
-        <strong className="ls-label">{challenge?.label}</strong>
-        <span className="ls-hint">{challenge?.hint}</span>
+      <div className="ls-actions">
+        <button
+          type="button"
+          className={`ls-capture-btn ${poseReady ? "is-ready" : "is-waiting"
+            }`}
+          disabled={!poseReady}
+          onClick={handleCapture}
+        >
+          <span className="ls-capture-icon">📸</span>
+          <span className="ls-capture-label">
+            {poseReady ? "Capture now" : "Hold pose…"}
+          </span>
+        </button>
+
+        {/* Optional steps show a Skip button */}
+        {!challenge?.required && (
+          <button
+            type="button"
+            className="ls-fallback-btn"
+            onClick={handleSkip}
+            title={isLastStage ? "Finish without this angle" : "Skip this angle"}
+          >
+            {isLastStage ? "Finish" : "Skip"}
+          </button>
+        )}
       </div>
 
-      {/* Hidden canvas used for capture */}
+      {/* If front is captured and we're on an optional step, offer early finish */}
+      {frontCaptured && stageIdx > 0 && stageIdx < CHALLENGES.length - 1 && (
+        <button
+          type="button"
+          className="ls-finish-early"
+          onClick={handleFinishEarly}
+        >
+          Finish now with front only
+        </button>
+      )}
+
       <canvas ref={canvasRef} className="ls-canvas" aria-hidden />
     </div>
   );
-}
+} 

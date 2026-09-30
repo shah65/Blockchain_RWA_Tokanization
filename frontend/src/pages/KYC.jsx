@@ -9,6 +9,10 @@ import KYCBadge from "../components/KYCBadge";
 import { useAuthContext } from "../context/AuthContext";
 import "./KYC.css";
 
+
+console.log("[env] VITE_KYC_DOCS_BUCKET =", import.meta.env.VITE_KYC_DOCS_BUCKET);
+console.log("[env] VITE_SUPABASE_URL   =", import.meta.env.VITE_SUPABASE_URL);
+console.log("[env] VITE_KYC_SELFIE_BUCKET =", import.meta.env.VITE_KYC_SELFIE_BUCKET);
 const STEPS = ["Personal", "Document", "Selfie"];
 
 export default function KYC() {
@@ -217,7 +221,7 @@ export default function KYC() {
         ))}
       </div>
 
-      <div className="kyc-card">
+      <div className={`kyc-card ${step === 2 ? "kyc-card-compact" : ""}`}>
         {step === 0 && (
           <div className="kyc-form">
             {/* --- Fields every document type needs --- */}
@@ -438,16 +442,28 @@ export default function KYC() {
         {step === 2 && (
           <div className="kyc-form">
             {!selfieResult ? (
-              <LiveSelfie
-                onCapture={setSelfieResult}
-                onError={(kind) =>
-                  toast.error(
-                    kind === "camera"
-                      ? "Camera access is required for the live selfie."
-                      : "Could not start the live selfie."
-                  )
-                }
-              />
+              <>
+                <div className="kyc-selfie-intro">
+                  <h3>Before you start</h3>
+                  <ul>
+                    <li>Make sure your face is well-lit and the room isn't backlit.</li>
+                    <li>Remove hats, sunglasses, and anything that covers your face.</li>
+                    <li>The camera will ask you to do 6 quick actions — follow the
+                      on-screen instructions one at a time.</li>
+                    <li>A photo is captured automatically when you complete each step.</li>
+                  </ul>
+                </div>
+                <LiveSelfie
+                  onCapture={setSelfieResult}
+                  onError={(kind) =>
+                    toast.error(
+                      kind === "camera"
+                        ? "Camera access is required for the live selfie."
+                        : "Could not start the live selfie."
+                    )
+                  }
+                />
+              </>
             ) : (
               <div className="kyc-selfie-success">
                 <img src={selfieResult.finalFrame} alt="Captured selfie" />
@@ -459,7 +475,10 @@ export default function KYC() {
                   >
                     Retake
                   </button>
-                  <span>Looks good — hit Submit for review.</span>
+                  <span>
+                    Looks good — {selfieResult.frames.length} frames captured.
+                    Hit "Submit for review" below.
+                  </span>
                 </div>
               </div>
             )}
@@ -471,9 +490,17 @@ export default function KYC() {
           {step < STEPS.length - 1 ? (
             <button className="kyc-btn-primary" disabled={busy} onClick={() => setStep((s) => s + 1)}>Continue</button>
           ) : (
-            <button className="kyc-btn-primary" disabled={busy} onClick={submit}>
-              {busy ? "Submitting…" : "Submit for review"}
-            </button>
+              <button
+                className="kyc-btn-primary"
+                disabled={busy || !selfieResult}
+                onClick={submit}
+              >
+                {busy
+                  ? "Submitting…"
+                  : !selfieResult
+                    ? "Complete the live selfie first"
+                    : "Submit for review"}
+              </button>
           )}
         </div>
       </div>

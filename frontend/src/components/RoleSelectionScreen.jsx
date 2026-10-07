@@ -1,6 +1,4 @@
-// ============================================================================
-// src/components/RoleSelectionScreen.jsx
-// ============================================================================
+ 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -321,7 +319,7 @@ export default function RoleSelectScreen() {
           <Reveal>
             <span className="rs-badge">
               <span className="rs-badge-dot" />
-              RWA Tokenization Platform
+              Sarmayachain · Own a share in real businesses
             </span>
           </Reveal>
 

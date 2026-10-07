@@ -1,6 +1,4 @@
-// ============================================================================
-// src/components/Navbar.jsx
-// ============================================================================
+ 
 import { Link, NavLink } from "react-router-dom";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { useAuth } from "../context/AuthContext";
@@ -114,8 +112,8 @@ export default function Navbar() {
         <Link to="/" className="nav-brand">
           <span className="nav-brand-mark"><Icon name="logo" /></span>
           <span className="nav-brand-text">
-            RWA
-            <small>Tokenization</small>
+            Sarmaya
+            <small>Chain</small>
           </span>
         </Link>
 

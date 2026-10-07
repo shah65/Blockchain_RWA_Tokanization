@@ -49,5 +49,5 @@
 
   const PORT = process.env.PORT || 4000;
   app.listen(PORT, () => {
-    console.log(`API running on port ${PORT}`);
-  });
+    console.log(`Sarmayachain API running on port ${PORT}`);
+    });

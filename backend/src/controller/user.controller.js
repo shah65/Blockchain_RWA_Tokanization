@@ -16,8 +16,8 @@ const getNonce = asyncHandler(async (req, res) => {
   if (!wallet) return res.status(400).json({ error: "wallet is required" });
 
   const nonce = Math.random().toString(36).slice(2);
-  const message = `Sign in to RWA Tokenization\nNonce: ${nonce}`;
-  nonceStore.set(wallet, message);
+  const message = `Sign in to Sarmayachain\nNonce: ${nonce}`;
+    nonceStore.set(wallet, message);
 
   res.json({ message });
 });

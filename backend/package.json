@@ -1,7 +1,7 @@
 {
-  "name": "solana-backend",
+"name": "sarmayachain-backend",
+"description": "Sarmayachain backend — RWA tokenization for small businesses",
   "version": "1.0.0",
-  "description": "Solana RWA backend",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",

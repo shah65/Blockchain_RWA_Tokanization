@@ -1,53 +1,35 @@
 // backend/src/controller/business.controller.js
 const businessModel = require("../models/business.model");
+const asyncHandler = require("../utils/asyncHandler");
+const { NotFoundError } = require("../utils/error");
 
 // POST /api/businesses/create  (auth required)
-async function createBusiness(req, res) {
-  try {
-    const business = await businessModel.createBusinessRecord({
-      ...req.body,
-      ownerWallet: req.walletAddress,
-    });
-    res.status(201).json({ business });
-  } catch (err) {
-    console.error("[createBusiness] failed:", err);
-    res.status(500).json({ error: err.message });
-  }
-}
+const createBusiness = asyncHandler(async (req, res) => {
+  const business = await businessModel.createBusinessRecord({
+    ...req.body,
+    ownerWallet: req.walletAddress,
+  });
+  res.status(201).json({ business });
+});
 
 // GET /api/businesses  (public)
-async function listBusinesses(req, res) {
-  try {
-    const businesses = await businessModel.listActiveBusinesses();
-    res.json({ businesses });
-  } catch (err) {
-    console.error("[listBusinesses] failed:", err);
-    res.status(500).json({ error: err.message });
-  }
-}
+const listBusinesses = asyncHandler(async (req, res) => {
+  const businesses = await businessModel.listActiveBusinesses();
+  res.json({ businesses });
+});
 
 // GET /api/businesses/:pubkey  (public)
-async function getBusiness(req, res) {
-  try {
-    const business = await businessModel.getBusinessByPubkey(req.params.pubkey);
-    if (!business) return res.status(404).json({ error: "Not found" });
-    res.json({ business });
-  } catch (err) {
-    console.error("[getBusiness] failed:", err);
-    res.status(500).json({ error: err.message });
-  }
-}
+const getBusiness = asyncHandler(async (req, res) => {
+  const business = await businessModel.getBusinessByPubkey(req.params.pubkey);
+  if (!business) throw new NotFoundError("Business not found");
+  res.json({ business });
+});
 
 // GET /api/businesses/mine  (auth required)
-async function listMyBusinesses(req, res) {
-  try {
-    const businesses = await businessModel.listBusinessesByOwner(req.walletAddress);
-    res.json({ businesses });
-  } catch (err) {
-    console.error("[listMyBusinesses] failed:", err);
-    res.status(500).json({ error: err.message });
-  }
-}
+const listMyBusinesses = asyncHandler(async (req, res) => {
+  const businesses = await businessModel.listBusinessesByOwner(req.walletAddress);
+  res.json({ businesses });
+});
 
 module.exports = {
   createBusiness,

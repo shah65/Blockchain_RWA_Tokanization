@@ -1,6 +1,4 @@
-// ============================================================================
-// src/pages/owner/CreateBusinessPage.jsx
-// ============================================================================
+ 
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -143,9 +141,15 @@ export default function CreateBusinessPage() {
       navigate("/owner");
     } catch (err) {
       console.error(err);
-      toast.error(err?.message || "Failed to create business.");
-    } finally {
-      setSubmitting(false);
+      const apiError = err?.response?.data?.error;
+      if (apiError?.code === "KYC_REQUIRED") {
+        toast.error("Please complete KYC verification before creating a business.", {
+          duration: 6000,
+        });
+        navigate("/kyc");
+        return;
+      }
+      toast.error(apiError?.message || err?.message || "Failed to create business.");
     }
   }
 

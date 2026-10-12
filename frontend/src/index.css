@@ -2344,58 +2344,169 @@ button:disabled {
 /* ==========================================================================
    Owner dashboard — premium glass UI with animated stats and cards
    ========================================================================== */
+/* ==========================================================================
+   Owner dashboard — fixed video background + glass UI
+   ========================================================================== */
 
+/* ---- Page wrapper ---- */
 .od-page {
   position: relative;
   min-height: 100vh;
-  padding: 60px 24px 100px;
+  padding: 0 0 120px;
   background: var(--bg-deep);
+  overflow-x: hidden;
+  /* NOT overflow: hidden — breaks position: fixed on children */
+}
+
+/* ---- Fixed video background ---- */
+.od-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
   overflow: hidden;
-  isolation: isolate;
 }
 
-.od-page::before {
-  content: "";
+.od-bg-video {
   position: absolute;
-  inset: -20%;
-  z-index: -3;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: saturate(1.15) brightness(0.45);
+  will-change: transform;
+  transition: transform 0.2s linear;
+}
+
+.od-bg-overlay {
+  position: absolute;
+  inset: 0;
   background:
-    radial-gradient(900px 700px at 10% 0%, rgba(139, 92, 246, 0.22), transparent 55%),
-    radial-gradient(800px 600px at 90% 15%, rgba(34, 211, 238, 0.15), transparent 55%),
-    radial-gradient(700px 700px at 50% 110%, rgba(99, 102, 241, 0.18), transparent 60%);
-  filter: blur(22px);
-  animation: pf-nebula 30s ease-in-out infinite alternate;
-  pointer-events: none;
+    radial-gradient(1200px 700px at 20% 30%, rgba(139, 92, 246, 0.35), transparent 60%),
+    radial-gradient(1000px 700px at 85% 70%, rgba(34, 211, 238, 0.25), transparent 60%),
+    linear-gradient(180deg,
+      rgba(5, 6, 10, 0.55) 0%,
+      rgba(5, 6, 10, 0.45) 40%,
+      rgba(5, 6, 10, 0.90) 100%);
+  will-change: opacity;
 }
 
-.od-halo {
-  position: absolute;
-  top: 20%;
-  left: 50%;
-  width: 900px;
-  height: 900px;
-  transform: translate(-50%, -50%);
+/* ---- Content wrapper ---- */
+.od-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- Hero copy ---- */
+.od-hero {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 120px 24px 60px;
+  min-height: 58vh;
+  display: flex;
+  align-items: center;
+}
+
+.od-hero-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 680px;
+}
+
+.od-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 6px 14px 6px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #d8d4ff;
+  background: rgba(120, 100, 255, 0.14);
+  border: 1px solid rgba(140, 120, 255, 0.4);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+}
+
+.od-hero-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  filter: blur(130px);
-  background: conic-gradient(from 0deg,
-      rgba(139, 92, 246, 0.35),
-      rgba(99, 102, 241, 0.18),
-      rgba(34, 211, 238, 0.22),
-      rgba(139, 92, 246, 0.35));
-  opacity: 0.45;
-  animation: pf-halo-spin 30s linear infinite;
-  z-index: -1;
-  pointer-events: none;
+  background: linear-gradient(135deg, #8b5cf6, #22d3ee);
+  box-shadow: 0 0 12px rgba(140, 120, 255, 1);
+  animation: od-hero-pulse 2.2s ease-in-out infinite;
 }
 
+@keyframes od-hero-pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.35);
+    opacity: 0.6;
+  }
+}
+
+.od-hero-headline {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  color: #fff;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.10),
+    0 4px 24px rgba(0, 0, 0, 0.7);
+}
+
+.od-hero-headline em {
+  font-style: normal;
+  background: linear-gradient(90deg, #8b5cf6, #22d3ee);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.od-hero-sub {
+  margin: 0;
+  max-width: 520px;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: rgba(230, 232, 245, 0.88);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* ---- Glass container for the dashboard ---- */
 .od-container {
   position: relative;
   z-index: 1;
   max-width: 1180px;
-  margin: 0 auto;
+  margin: 0 auto 60px;
+  padding: 40px 32px 48px;
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 32px;
+
+background:
+    radial-gradient(800px 500px at 15% 0%, rgba(199, 180, 241, 0.18), transparent 40%),
+    linear-gradient(180deg, rgba(192, 170, 170, 0.1) 0%, rgba(217, 211, 211, 0.04) 50%),
+    rgba(30, 34, 52, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 28px;
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(176, 158, 158, 0.12),
+    0 40px 80px -40px rgba(82, 79, 79, 0.75);
 }
 
 /* ---- Header ---- */
@@ -2498,9 +2609,9 @@ button:disabled {
   padding: 20px 22px;
   border-radius: 20px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 100%),
-    rgba(15, 17, 28, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.015) 100%),
+    rgba(15, 17, 28, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
   box-shadow:
@@ -2540,7 +2651,6 @@ button:disabled {
   align-items: center;
   justify-content: center;
   color: #fff;
-  background: linear-gradient(135deg, currentColor, currentColor);
   background: linear-gradient(135deg,
       color-mix(in oklab, currentColor 90%, #000 10%),
       color-mix(in oklab, currentColor 70%, #fff 30%));
@@ -2585,9 +2695,9 @@ button:disabled {
   border-radius: 22px;
   overflow: hidden;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.012) 100%),
-    rgba(15, 17, 28, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.012) 100%),
+    rgba(15, 17, 28, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   backdrop-filter: blur(22px) saturate(140%);
   -webkit-backdrop-filter: blur(22px) saturate(140%);
   box-shadow:
@@ -2660,6 +2770,13 @@ button:disabled {
   background: rgba(20, 16, 40, 0.72);
   border: 1px solid rgba(160, 140, 255, 0.35);
   backdrop-filter: blur(6px);
+}
+
+.od-card-kyc {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  z-index: 2;
 }
 
 .od-card-address {
@@ -2877,7 +2994,7 @@ button:disabled {
   color: var(--text-secondary);
 }
 
-/* ---- Skeleton loading ---- */
+/* ---- Skeleton ---- */
 .od-card-skeleton {
   animation: none;
   pointer-events: none;
@@ -2933,14 +3050,25 @@ button:disabled {
   width: 100%;
 }
 
+/* ---- KYC banner glass tweak ---- */
+.kyc-gate-banner {
+  background:
+    linear-gradient(180deg, rgba(245, 158, 11, 0.14), rgba(245, 158, 11, 0.04));
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  border-radius: 16px;
+}
+
 /* ---- Reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
-
-  .od-page::before,
-  .od-halo,
-  .od-empty-icon,
-  .od-skel {
+  .od-hero-dot {
     animation: none;
+  }
+
+  .od-bg-video {
+    filter: saturate(1) brightness(0.45);
+    transition: none;
   }
 
   .od-card {
@@ -2951,16 +3079,37 @@ button:disabled {
   .od-card:hover {
     transform: none;
   }
-}
-/* KYC badge on the owner's business card cover */
-/* KYC badge on the owner's business card cover */
-.od-card-kyc {
-  position: absolute;
-  bottom: 10px;
-  right: 12px;
-  z-index: 2;
+
+  .od-empty-icon {
+    animation: none;
+  }
+
+  .od-skel {
+    animation: none;
+  }
 }
 
+/* ---- Mobile ---- */
+@media (max-width: 720px) {
+  .od-hero {
+    padding: 80px 20px 40px;
+    min-height: auto;
+  }
+
+  .od-hero-headline {
+    font-size: clamp(1.7rem, 7vw, 2.4rem);
+  }
+
+  .od-container {
+    padding: 24px 18px 32px;
+    border-radius: 20px;
+    margin-bottom: 32px;
+  }
+
+  .od-bg-video {
+    filter: saturate(1.1) brightness(0.35);
+  }
+}
 
 
 

@@ -1,265 +1,322 @@
-  // ============================================================================
-  // src/pages/owner/OwnerDashboard.jsx
-  // ============================================================================
-  import { useEffect, useState, useMemo, useRef } from "react";
-  import { Link } from "react-router-dom";
-  import { api } from "../../config/api";
-  import toast from "react-hot-toast";
+// ============================================================================
+// src/pages/owner/OwnerDashboard.jsx
+// Fixed video background + glass UI overlay
+// ============================================================================
+import { useEffect, useState, useMemo, useRef } from "react";
+import { Link } from "react-router-dom";
+import { api } from "../../config/api";
+import toast from "react-hot-toast";
+import owner_vdo from "../../assets/owner_vdo.mp4";
+import KYCBadge from "../../components/KYCBadge";
+import { useAuthContext } from "../../context/AuthContext";
+import "../KYC.css";
 
-  import KYCBadge from "../../components/KYCBadge";
-  import { useAuthContext } from "../../context/AuthContext";
-  import "../KYC.css";
+// ---------------------------------------------------------------------------
+// Icons
+// ---------------------------------------------------------------------------
+function Icon({ name, size = 18 }) {
+  const p = {
+    width: size, height: size, viewBox: "0 0 24 24", fill: "none",
+    stroke: "currentColor", strokeWidth: 1.8,
+    strokeLinecap: "round", strokeLinejoin: "round",
+  };
+  switch (name) {
+    case "grid":
+      return <svg {...p}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>;
+    case "coins":
+      return <svg {...p}><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></svg>;
+    case "trend":
+      return <svg {...p}><path d="M3 17l6-6 4 4 8-8M14 7h7v7" /></svg>;
+    case "plus":
+      return <svg {...p}><path d="M12 5v14M5 12h14" /></svg>;
+    case "copy":
+      return <svg {...p}><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg>;
+    case "check":
+      return <svg {...p}><path d="m20 6-11 11L4 12" /></svg>;
+    case "arrow":
+      return <svg {...p}><path d="M5 12h14M13 6l6 6-6 6" /></svg>;
+    case "deposit":
+      return <svg {...p}><path d="M12 3v13M6 10l6 6 6-6M4 21h16" /></svg>;
+    case "spark":
+      return <svg {...p}><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18" /></svg>;
+    default:
+      return null;
+  }
+}
 
-  // ---------------------------------------------------------------------------
-  // Icons
-  // ---------------------------------------------------------------------------
-  function Icon({ name, size = 18 }) {
-    const p = {
-      width: size, height: size, viewBox: "0 0 24 24", fill: "none",
-      stroke: "currentColor", strokeWidth: 1.8,
-      strokeLinecap: "round", strokeLinejoin: "round",
+// ---------------------------------------------------------------------------
+// Animated counter
+// ---------------------------------------------------------------------------
+function Counter({ value, duration = 800, format = (n) => Math.round(n).toLocaleString() }) {
+  const [display, setDisplay] = useState(0);
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    const start = performance.now();
+    const from = 0;
+    const to = Number(value) || 0;
+
+    function tick(now) {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisplay(from + (to - from) * eased);
+      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+    }
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-    switch (name) {
-      case "grid":
-        return <svg {...p}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>;
-      case "coins":
-        return <svg {...p}><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" /><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></svg>;
-      case "trend":
-        return <svg {...p}><path d="M3 17l6-6 4 4 8-8M14 7h7v7" /></svg>;
-      case "plus":
-        return <svg {...p}><path d="M12 5v14M5 12h14" /></svg>;
-      case "copy":
-        return <svg {...p}><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg>;
-      case "check":
-        return <svg {...p}><path d="m20 6-11 11L4 12" /></svg>;
-      case "arrow":
-        return <svg {...p}><path d="M5 12h14M13 6l6 6-6 6" /></svg>;
-      case "deposit":
-        return <svg {...p}><path d="M12 3v13M6 10l6 6 6-6M4 21h16" /></svg>;
-      case "spark":
-        return <svg {...p}><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18" /></svg>;
-      default:
-        return null;
+  }, [value, duration]);
+
+  return <>{format(display)}</>;
+}
+
+// ---------------------------------------------------------------------------
+// Stat tile
+// ---------------------------------------------------------------------------
+function StatTile({ icon, label, value, suffix, prefix, accent = "violet" }) {
+  return (
+    <div className={`od-stat od-stat-${accent}`}>
+      <div className="od-stat-icon"><Icon name={icon} size={20} /></div>
+      <div className="od-stat-body">
+        <span className="od-stat-label">{label}</span>
+        <span className="od-stat-value">
+          {prefix}
+          <Counter value={value} />
+          {suffix}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Copy button
+// ---------------------------------------------------------------------------
+function CopyButton({ text, label = "Copy address" }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast.success("Address copied");
+      setTimeout(() => setCopied(false), 1400);
+    } catch {
+      toast.error("Couldn't copy");
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Animated counter
-  // ---------------------------------------------------------------------------
-  function Counter({ value, duration = 800, format = (n) => Math.round(n).toLocaleString() }) {
-    const [display, setDisplay] = useState(0);
-    const rafRef = useRef(null);
+  return (
+    <button
+      className="od-copy"
+      onClick={handleCopy}
+      title={label}
+      aria-label={label}
+    >
+      <Icon name={copied ? "check" : "copy"} size={13} />
+      <span>{copied ? "Copied" : "Copy"}</span>
+    </button>
+  );
+}
 
-    useEffect(() => {
-      const start = performance.now();
-      const from = 0;
-      const to = Number(value) || 0;
+// ---------------------------------------------------------------------------
+// Business card
+// ---------------------------------------------------------------------------
+function OwnerBusinessCard({ business, index, kycApproved, kycStatus }) {
+  const tokensSold = Number(business.tokens_sold || 0);
+  const totalTokens = Number(business.total_tokens || 0);
+  const ratio = totalTokens > 0 ? Math.min(1, tokensSold / totalTokens) : 0;
+  const pct = Math.round(ratio * 100);
+  const priceUsd = Number(business.price_per_token || 0) / 1_000_000;
+  const raiseUsd = priceUsd * totalTokens;
+  const shortAddr = business.onchain_pubkey
+    ? `${business.onchain_pubkey.slice(0, 4)}…${business.onchain_pubkey.slice(-4)}`
+    : "—";
 
-      function tick(now) {
-        const t = Math.min(1, (now - start) / duration);
-        const eased = 1 - Math.pow(1 - t, 3);
-        setDisplay(from + (to - from) * eased);
-        if (t < 1) rafRef.current = requestAnimationFrame(tick);
-      }
+  return (
+    <div className="od-card" style={{ "--delay": `${index * 60}ms` }}>
+      <div className="od-card-cover">
+        <div className="od-card-cover-grad" aria-hidden />
+        <span className="od-card-badge">{business.category || "Business"}</span>
 
-      rafRef.current = requestAnimationFrame(tick);
-      return () => {
-        if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      };
-    }, [value, duration]);
+        <span className="od-card-kyc" title="Your KYC status for this business">
+          <KYCBadge status={kycStatus || "not_started"} size="sm" />
+        </span>
 
-    return <>{format(display)}</>;
-  }
+        <span className="od-card-address" title={business.onchain_pubkey}>
+          <span>{shortAddr}</span>
+          <CopyButton text={business.onchain_pubkey || ""} />
+        </span>
+      </div>
 
-  // ---------------------------------------------------------------------------
-  // Stat tile
-  // ---------------------------------------------------------------------------
-  function StatTile({ icon, label, value, suffix, prefix, accent = "violet" }) {
-    return (
-      <div className={`od-stat od-stat-${accent}`}>
-        <div className="od-stat-icon"><Icon name={icon} size={20} /></div>
-        <div className="od-stat-body">
-          <span className="od-stat-label">{label}</span>
-          <span className="od-stat-value">
-            {prefix}
-            <Counter value={value} />
-            {suffix}
-          </span>
+      <div className="od-card-body">
+        <h3 className="od-card-title">{business.name}</h3>
+        <p className="od-card-desc">{business.description || "No description yet."}</p>
+
+        <div className="od-card-metrics">
+          <div className="od-metric">
+            <span className="od-metric-label">Price / token</span>
+            <span className="od-metric-value">${priceUsd.toFixed(2)}</span>
+          </div>
+          <div className="od-metric">
+            <span className="od-metric-label">Potential raise</span>
+            <span className="od-metric-value">
+              ${raiseUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </span>
+          </div>
+        </div>
+
+        <div className="od-progress">
+          <div className="od-progress-head">
+            <span>Shares sold</span>
+            <span>{tokensSold.toLocaleString()} / {totalTokens.toLocaleString()}</span>
+          </div>
+          <div className="od-progress-track">
+            <div className="od-progress-fill" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+
+        <div className="od-card-actions">
+          <Link
+            to={`/owner/deposit-profit/${business.onchain_pubkey}`}
+            className="od-action od-action-primary"
+            onClick={(e) => { if (!kycApproved) { e.preventDefault(); toast.error("Complete KYC before depositing profit"); } }}
+            style={!kycApproved ? { opacity: 0.5, pointerEvents: "none" } : undefined}
+          >
+            <Icon name="deposit" size={15} />
+            Deposit profit
+          </Link>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  // ---------------------------------------------------------------------------
-  // Copy button
-  // ---------------------------------------------------------------------------
-  function CopyButton({ text, label = "Copy address" }) {
-    const [copied, setCopied] = useState(false);
+// ---------------------------------------------------------------------------
+// Skeleton
+// ---------------------------------------------------------------------------
+function SkeletonCard() {
+  return (
+    <div className="od-card od-card-skeleton">
+      <div className="od-skel od-skel-cover" />
+      <div className="od-card-body">
+        <div className="od-skel od-skel-line od-skel-title" />
+        <div className="od-skel od-skel-line" />
+        <div className="od-skel od-skel-line od-skel-short" />
+        <div className="od-skel od-skel-metrics" />
+        <div className="od-skel od-skel-bar" />
+      </div>
+    </div>
+  );
+}
 
-    async function handleCopy(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      try {
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        toast.success("Address copied");
-        setTimeout(() => setCopied(false), 1400);
-      } catch {
-        toast.error("Couldn't copy");
-      }
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+export default function OwnerDashboard() {
+  const { profile } = useAuthContext();
+  const kycStatus = profile?.kyc_status || "not_started";
+  const kycApproved = kycStatus === "approved";
+
+  const [businesses, setBusinesses] = useState(null);
+
+  useEffect(() => {
+    api
+      .get("/businesses/mine")
+      .then(({ data }) => setBusinesses(data.businesses))
+      .catch(() => {
+        toast.error("Could not load your businesses.");
+        setBusinesses([]);
+      });
+  }, []);
+
+  // Optional: gentle fade + zoom on the background as the user scrolls
+  useEffect(() => {
+    const overlay = document.querySelector(".od-bg-overlay");
+    const video = document.querySelector(".od-bg-video");
+    if (!overlay || !video) return;
+
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const p = Math.min(1, window.scrollY / window.innerHeight);
+        overlay.style.opacity = String(1 - p * 0.35);
+        video.style.transform = `scale(${1 + p * 0.06})`;
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  const stats = useMemo(() => {
+    if (!businesses) return { count: 0, shares: 0, raise: 0 };
+    let count = businesses.length;
+    let shares = 0;
+    let raise = 0;
+    for (const b of businesses) {
+      const t = Number(b.total_tokens || 0);
+      const p = Number(b.price_per_token || 0) / 1_000_000;
+      shares += t;
+      raise += t * p;
     }
+    return { count, shares, raise };
+  }, [businesses]);
 
-    return (
-      <button
-        className="od-copy"
-        onClick={handleCopy}
-        title={label}
-        aria-label={label}
-      >
-        <Icon name={copied ? "check" : "copy"} size={13} />
-        <span>{copied ? "Copied" : "Copy"}</span>
-      </button>
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Business card (local to this file — no separate BusinessCard.jsx needed)
-  // ---------------------------------------------------------------------------
-function OwnerBusinessCard({ business, index, kycApproved, kycStatus }) {      
-    const tokensSold = Number(business.tokens_sold || 0);
-    const totalTokens = Number(business.total_tokens || 0);
-    const ratio = totalTokens > 0 ? Math.min(1, tokensSold / totalTokens) : 0;
-    const pct = Math.round(ratio * 100);
-    const priceUsd = Number(business.price_per_token || 0) / 1_000_000;
-    const raiseUsd = priceUsd * totalTokens;
-    const shortAddr = business.onchain_pubkey
-      ? `${business.onchain_pubkey.slice(0, 4)}…${business.onchain_pubkey.slice(-4)}`
-      : "—";
-
-    return (
-      <div className="od-card" style={{ "--delay": `${index * 60}ms` }}>
-        <div className="od-card-cover">
-          <div className="od-card-cover-grad" aria-hidden />
-          <span className="od-card-badge">{business.category || "Business"}</span>
-
-          {/* KYC badge — visible to the owner as a status indicator */}
-          <span className="od-card-kyc" title="Your KYC status for this business">
-            <KYCBadge status={kycStatus || "not_started"} size="sm" />
-          </span>
-
-          <span className="od-card-address" title={business.onchain_pubkey}>
-            <span>{shortAddr}</span>
-            <CopyButton text={business.onchain_pubkey || ""} />
-          </span>
-        </div>
-
-        <div className="od-card-body">
-          <h3 className="od-card-title">{business.name}</h3>
-          <p className="od-card-desc">{business.description || "No description yet."}</p>
-
-          <div className="od-card-metrics">
-            <div className="od-metric">
-              <span className="od-metric-label">Price / token</span>
-              <span className="od-metric-value">${priceUsd.toFixed(2)}</span>
-            </div>
-            <div className="od-metric">
-              <span className="od-metric-label">Potential raise</span>
-              <span className="od-metric-value">
-                ${raiseUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </span>
-            </div>
-          </div>
-
-          <div className="od-progress">
-            <div className="od-progress-head">
-              <span>Shares sold</span>
-              <span>{tokensSold.toLocaleString()} / {totalTokens.toLocaleString()}</span>
-            </div>
-            <div className="od-progress-track">
-              <div className="od-progress-fill" style={{ width: `${pct}%` }} />
-            </div>
-          </div>
-
-          <div className="od-card-actions">
-            <Link
-              to={`/owner/deposit-profit/${business.onchain_pubkey}`}
-              className="od-action od-action-primary"
-              onClick={(e) => { if (!kycApproved) { e.preventDefault(); toast.error("Complete KYC before depositing profit"); } }}
-              style={!kycApproved ? { opacity: 0.5, pointerEvents: "none" } : undefined}
-            >
-              <Icon name="deposit" size={15} />
-              Deposit profit
-            </Link>
-          </div>
-        </div>
+  return (
+    <div className="od-page">
+      {/* ============ Fixed background video ============ */}
+      <div className="od-bg" aria-hidden>
+        <video
+          className="od-bg-video"
+          src={owner_vdo}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          onLoadedMetadata={(e) => { e.currentTarget.playbackRate = 0.6; }}
+          onPlay={(e) => { e.currentTarget.playbackRate = 0.6; }}
+        />
+        <div className="od-bg-overlay" />
       </div>
-    );
-  }
 
-  // ---------------------------------------------------------------------------
-  // Skeleton
-  // ---------------------------------------------------------------------------
-  function SkeletonCard() {
-    return (
-      <div className="od-card od-card-skeleton">
-        <div className="od-skel od-skel-cover" />
-        <div className="od-card-body">
-          <div className="od-skel od-skel-line od-skel-title" />
-          <div className="od-skel od-skel-line" />
-          <div className="od-skel od-skel-line od-skel-short" />
-          <div className="od-skel od-skel-metrics" />
-          <div className="od-skel od-skel-bar" />
-        </div>
-      </div>
-    );
-  }
+      {/* ============ All UI floats above the video ============ */}
+      <div className="od-content">
+        {/* Hero copy */}
+        <section className="od-hero" aria-label="Sarmayachain intro">
+          <div className="od-hero-inner">
+            <span className="od-hero-badge">
+              <span className="od-hero-dot" />
+              Owner dashboard
+            </span>
+            {/* <h1 className="od-hero-headline">
+              Turn your business into <em>on-chain ownership</em>.
+            </h1> */}
+            {/* <p className="od-hero-sub">
+              Launch a share offering in under a minute. Pay out monthly profit
+              automatically. Every investor is KYC-verified.
+            </p> */}
+          </div>
+        </section>
 
-  // ---------------------------------------------------------------------------
-  // Page
-  // ---------------------------------------------------------------------------
-  export default function OwnerDashboard() {
-    const { profile } = useAuthContext();
-    const kycStatus = profile?.kyc_status || "not_started";
-    const kycApproved = kycStatus === "approved";
-
-    const [businesses, setBusinesses] = useState(null);
-
-    useEffect(() => {
-      api
-        .get("/businesses/mine")
-        .then(({ data }) => setBusinesses(data.businesses))
-        .catch(() => {
-          toast.error("Could not load your businesses.");
-          setBusinesses([]);
-        });
-    }, []);
-
-    const stats = useMemo(() => {
-      if (!businesses) return { count: 0, shares: 0, raise: 0 };
-      let count = businesses.length;
-      let shares = 0;
-      let raise = 0;
-      for (const b of businesses) {
-        const t = Number(b.total_tokens || 0);
-        const p = Number(b.price_per_token || 0) / 1_000_000;
-        shares += t;
-        raise += t * p;
-      }
-      return { count, shares, raise };
-    }, [businesses]);
-
-    return (
-      <div className="od-page">
-        <div className="od-halo" aria-hidden />
-
-        <div className="od-container">
+        {/* Glass dashboard container */}
+        <div className=" od-container">
           {/* Header */}
           <header className="od-header">
             <div>
-              <span className="od-eyebrow">Owner dashboard</span>
-              <h1 className="od-title">
+              <span className="od-eyebrow">Your dashboard</span>
+              <h2 className="od-title">
                 Your <span className="od-title-accent">businesses</span>
-              </h1>
+              </h2>
               <p className="od-subtitle">
                 Every business you tokenize appears here. Click{" "}
                 <strong>New business</strong> to launch another one — it takes
@@ -272,7 +329,7 @@ function OwnerBusinessCard({ business, index, kycApproved, kycStatus }) {
             </Link>
           </header>
 
-          {/* KYC gate banner — INSIDE the component now */}
+          {/* KYC gate banner */}
           {!kycApproved && (
             <div className="kyc-gate-banner">
               <div>
@@ -306,7 +363,6 @@ function OwnerBusinessCard({ business, index, kycApproved, kycStatus }) {
             <StatTile icon="trend" label="Potential raise" value={stats.raise} prefix="$" accent="indigo" />
           </div>
 
-           
           {/* Content */}
           {businesses === null ? (
             <div className="od-grid">
@@ -329,18 +385,19 @@ function OwnerBusinessCard({ business, index, kycApproved, kycStatus }) {
             </div>
           ) : (
             <div className="od-grid">
-                  {businesses.map((b, i) => (
-                    <OwnerBusinessCard
-                      key={b.onchain_pubkey}
-                      business={b}
-                      index={i}
-                      kycApproved={kycApproved}
-                      kycStatus={kycStatus}
-                    />
-                  ))}
+              {businesses.map((b, i) => (
+                <OwnerBusinessCard
+                  key={b.onchain_pubkey}
+                  business={b}
+                  index={i}
+                  kycApproved={kycApproved}
+                  kycStatus={kycStatus}
+                />
+              ))}
             </div>
           )}
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}

@@ -1,4 +1,3 @@
- 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -7,6 +6,7 @@ import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import Spinner from "./Spinner";
 import video from "../assets/first_page.mp4";
+import "./RoleSelectionScreen.css";
 
 // ---------------------------------------------------------------------------
 // Reveal on scroll
@@ -89,35 +89,55 @@ function TiltCard({ children, onClick, disabled }) {
 export default function RoleSelectScreen() {
   const { publicKey } = useWallet();
   const { setVisible } = useWalletModal();
-  // ← CHANGED: extend the destructure to include everything the banner needs.
   const { signIn, profile, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
   const [busy, setBusy] = useState(false);
   const [pendingRole, setPendingRole] = useState(null);
   const [adminRevealed, setAdminRevealed] = useState(false);
-
-  // Smooth hero scroll progress — interpolated via rAF so it never jitters
-  const [heroProgress, setHeroProgress] = useState(0);
   const [pageProgress, setPageProgress] = useState(0);
+
+  // ── Stacked scroll controller ──────────────────────────────────────────
+  // Tracks scroll position and drives per-section opacity/scale so each
+  // section "hands off" to the next one smoothly.
+  const pageRef = useRef(null);
+  const sectionRefs = useRef([]);
+  const rafRef = useRef(0);
   const targetRef = useRef(0);
   const currentRef = useRef(0);
-  const rafRef = useRef(0);
 
-  // ---- Effect #1: scroll progress ----
+  // ---- Effect: scroll progress + section fade driver ----
   useEffect(() => {
     function onScroll() {
-      const h = window.innerHeight;
-      targetRef.current = Math.min(1, window.scrollY / h);
       const doc = document.documentElement;
       const max = doc.scrollHeight - doc.clientHeight;
-      setPageProgress(max > 0 ? window.scrollY / max : 0);
+      targetRef.current = max > 0 ? window.scrollY / max : 0;
     }
+
     function tick() {
-      currentRef.current += (targetRef.current - currentRef.current) * 0.12;
-      setHeroProgress(currentRef.current);
+      currentRef.current += (targetRef.current - currentRef.current) * 0.15;
+      setPageProgress(currentRef.current);
+
+      const vh = window.innerHeight;
+      sectionRefs.current.forEach((el) => {
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        // progress of this section through the viewport:
+        // 0 when its top hits the top of the viewport, 1 when bottom passes.
+        const p = Math.min(1, Math.max(0, -rect.top / vh));
+        // Fade + scale out as the NEXT section takes over
+        const fade = 1 - p * 0.85;
+        const scale = 1 - p * 0.06;
+        const blur = p * 6;
+        el.style.setProperty("--sec-fade", fade.toFixed(3));
+        el.style.setProperty("--sec-scale", scale.toFixed(3));
+        el.style.setProperty("--sec-blur", `${blur.toFixed(2)}px`);
+        el.style.setProperty("--sec-y", `${(-p * 40).toFixed(1)}px`);
+      });
+
       rafRef.current = requestAnimationFrame(tick);
     }
+
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
     rafRef.current = requestAnimationFrame(tick);
@@ -127,7 +147,7 @@ export default function RoleSelectScreen() {
     };
   }, []);
 
-  // ---- Effect #2: admin reveal ----
+  // ---- Effect: admin reveal ----
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("admin") === "1") {
@@ -147,7 +167,7 @@ export default function RoleSelectScreen() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // ---- Handler (not a hook) ----
+  // ---- Role handler ----
   async function handleChooseRole(role) {
     setPendingRole(role);
 
@@ -174,7 +194,6 @@ export default function RoleSelectScreen() {
         return;
       }
 
-      // investor (default)
       if (!profile?.full_name) {
         navigate("/complete-profile", { replace: true });
       } else {
@@ -192,7 +211,7 @@ export default function RoleSelectScreen() {
     }
   }
 
-  // ---- Early return (AFTER all hooks) ----
+  // ---- Busy overlay ----
   if (busy) {
     return (
       <div className="rs-busy">
@@ -207,33 +226,36 @@ export default function RoleSelectScreen() {
   }
 
   return (
-    <div className="rs-page">
+    <div className="rs-page" ref={pageRef}>
       {/* ============================================================
-          SIGNED-IN BANNER — shown when a session already exists.
-          ← CHANGED: this used to live at module scope. It now lives
-          inside the component's returned JSX, at the very top.
+          FIXED BACKGROUND VIDEO — stays put across all 3 sections.
+          Each section sits on top of it with its own glass overlay.
          ============================================================ */}
+      <div className="rs-bg-video-wrap" aria-hidden>
+        <video
+          className="rs-bg-video"
+          src={video}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+        />
+        <div className="rs-bg-video-overlay" />
+        <div className="rs-aurora">
+          <span className="rs-orb rs-orb-1" />
+          <span className="rs-orb rs-orb-2" />
+          <span className="rs-orb rs-orb-3" />
+        </div>
+      </div>
+
+      {/* Signed-in banner */}
       {isAuthenticated && profile && (
-        <div
-          className="rs-signed-in-banner"
-          style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 50,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "12px 20px",
-            background: "linear-gradient(90deg, #4c1d95 0%, #1e3a8a 100%)",
-            color: "#fff",
-            fontSize: 14,
-          }}
-        >
+        <div className="rs-signed-in-banner">
           <span>
             Signed in as{" "}
             <strong>
-              {profile.full_name ||
-                `${profile.wallet_address.slice(0, 6)}…`}
+              {profile.full_name || `${profile.wallet_address.slice(0, 6)}…`}
             </strong>{" "}
             · <span style={{ opacity: 0.8 }}>{profile.role}</span>
           </span>
@@ -249,29 +271,10 @@ export default function RoleSelectScreen() {
                       : "/investor"
                 )
               }
-              style={{
-                padding: "6px 14px",
-                borderRadius: 8,
-                border: "1px solid rgba(255,255,255,0.35)",
-                background: "rgba(255,255,255,0.12)",
-                color: "#fff",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
             >
               Continue →
             </button>
-            <button
-              onClick={logout}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 8,
-                border: "1px solid rgba(255,255,255,0.35)",
-                background: "transparent",
-                color: "#fff",
-                cursor: "pointer",
-              }}
-            >
+            <button className="rs-btn-signout" onClick={logout}>
               Sign out
             </button>
           </div>
@@ -286,233 +289,143 @@ export default function RoleSelectScreen() {
         />
       </div>
 
-      <section className="rs-hero">
-        <div className="rs-aurora" aria-hidden>
-          <span className="rs-orb rs-orb-1" />
-          <span className="rs-orb rs-orb-2" />
-          <span className="rs-orb rs-orb-3" />
-        </div>
+      {/* ============================================================
+          SECTION 1 — HERO
+         ============================================================ */}
+      <section
+        className="rs-section rs-hero"
+        ref={(el) => (sectionRefs.current[0] = el)}
+      >
+        <div className="rs-glass-frame rs-hero-frame">
+          <div className="rs-hero-inner">
+            <Reveal>
+              <span className="rs-badge">
+                <span className="rs-badge-dot" />
+                Sarmayachain · Own a share in real businesses
+              </span>
+            </Reveal>
 
-        <video
-          className="rs-hero-video"
-          src={video}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          style={{
-            transform: `scale(${1 + heroProgress * 0.08})`,
-            opacity: 1 - heroProgress * 0.5,
-          }}
-        />
-        <div className="rs-hero-video-overlay" />
+            <Reveal delay={200}>
+              <h1 className="rs-hero-title">
+                Tokenize. Invest. <span className="rs-title-accent">Earn.</span>
+              </h1>
+            </Reveal>
 
-        <div
-          className="rs-hero-inner"
-          style={{
-            opacity: 1 - heroProgress * 1.15,
-            transform: `translateY(${heroProgress * -70}px) scale(${1 - heroProgress * 0.02
-              })`,
-          }}
-        >
-          <Reveal>
-            <span className="rs-badge">
-              <span className="rs-badge-dot" />
-              Sarmayachain · Own a share in real businesses
-            </span>
-          </Reveal>
-
-          <Reveal delay={280}>
-            <a href="#choose" className="rs-scroll-cue">
-              <span>Scroll to begin</span>
-              <svg
-                viewBox="0 0 24 24"
-                width="18"
-                height="18"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path
-                  d="M12 5v14M6 13l6 6 6-6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </a>
-          </Reveal>
-        </div>
-
-        <div className="rs-hero-fade" aria-hidden />
-      </section>
-
-      {/* SECTION 2 — HOW IT WORKS */}
-      <section className="rs-split">
-        <div className="rs-split-inner">
-          <Reveal className="rs-split-copy" delay={120}>
-            <span className="rs-eyebrow">How it works</span>
-            <h2 className="rs-split-title">Two paths. One on-chain protocol.</h2>
-            <p className="rs-split-text">
-              Every business gets its own escrow vault and share token. Every
-              investor gets a PDA recording exactly what they own. All money
-              movements are verifiable on Solana.
-            </p>
-
-            <ul className="rs-feature-list">
-              <li>
-                <span className="rs-feature-dot rs-dot-violet" />
-                Businesses issue shares in USDC, priced per token
-              </li>
-              <li>
-                <span className="rs-feature-dot rs-dot-cyan" />
-                Investors buy and hold shares directly on-chain
-              </li>
-              <li>
-                <span className="rs-feature-dot rs-dot-blue" />
-                Monthly profit deposits flow to holders automatically
-              </li>
-            </ul>
-          </Reveal>
-
-          <Reveal className="rs-split-panel" delay={200}>
-            <div className="rs-stat-card">
-              <span className="rs-stat-label">Escrow vaults</span>
-              <span className="rs-stat-value">On-chain</span>
-            </div>
-            <div className="rs-stat-card">
-              <span className="rs-stat-label">Share ownership</span>
-              <span className="rs-stat-value">Verifiable</span>
-            </div>
-            <div className="rs-stat-card">
-              <span className="rs-stat-label">Monthly payouts</span>
-              <span className="rs-stat-value">Automatic</span>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* SECTION 3 — CHOOSE YOUR ROLE */}
-      <section id="choose" className="rs-choose">
-        <Reveal>
-          <div className="rs-choose-header">
-            <span className="rs-eyebrow">Get started</span>
-            <h2 className="rs-choose-title">Choose your role</h2>
-            <p className="rs-choose-sub">
-              {adminRevealed
-                ? "Admin access detected. Choose carefully — actions are logged."
-                : "This decision is permanent for this wallet. Pick the path that matches what you're here to do."}
-            </p>
-          </div>
-        </Reveal>
-
-        <div className="rs-cards">
-          <Reveal delay={100}>
-            <TiltCard
-              onClick={() => handleChooseRole("business_owner")}
-              disabled={busy}
-            >
-              <div className="role-card-border" aria-hidden />
-              <div className="role-card-glow" aria-hidden />
-              <div className="role-card-inner">
-                <div className="role-card-icon role-card-icon-owner">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                  >
-                    <path
-                      d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-                <h3 className="role-card-title">I'm a Business Owner</h3>
-                <p className="role-card-desc">
-                  Tokenize your business, sell shares to investors, and pay out
-                  monthly profit — all on-chain.
-                </p>
-                <span className="role-card-cta">
-                  Continue
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    width="16"
-                    height="16"
-                  >
-                    <path
-                      d="M5 12h14M13 6l6 6-6 6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-              </div>
-            </TiltCard>
-          </Reveal>
-
-          <Reveal delay={220}>
-            <TiltCard
-              onClick={() => handleChooseRole("investor")}
-              disabled={busy}
-            >
-              <div className="role-card-border" aria-hidden />
-              <div className="role-card-glow" aria-hidden />
-              <div className="role-card-inner">
-                <div className="role-card-icon role-card-icon-investor">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                  >
-                    <path
-                      d="M3 17l6-6 4 4 8-8M14 7h7v7"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-                <h3 className="role-card-title">I'm an Investor</h3>
-                <p className="role-card-desc">
-                  Browse tokenized businesses, buy shares in USDC, and track
-                  your monthly returns.
-                </p>
-                <span className="role-card-cta">
-                  Continue
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    width="16"
-                    height="16"
-                  >
-                    <path
-                      d="M5 12h14M13 6l6 6-6 6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-              </div>
-            </TiltCard>
-          </Reveal>
-
-          {adminRevealed && (
             <Reveal delay={320}>
+              <p className="rs-hero-sub">
+                A Solana-native protocol where businesses raise capital and
+                investors own verifiable shares — with automatic monthly payouts.
+              </p>
+            </Reveal>
+
+            <Reveal delay={450}>
+              <a href="#choose" className="rs-scroll-cue">
+                <span>Scroll to begin</span>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path
+                    d="M12 5v14M6 13l6 6 6-6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </a>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          SECTION 2 — HOW IT WORKS
+         ============================================================ */}
+      <section
+        className="rs-section rs-split"
+        ref={(el) => (sectionRefs.current[1] = el)}
+      >
+        <div className="rs-glass-frame rs-split-frame">
+          <div className="rs-split-inner">
+            <Reveal className="rs-split-copy" delay={120}>
+              <span className="rs-eyebrow">How it works</span>
+              <h2 className="rs-split-title">
+                Two paths. One on-chain protocol.
+              </h2>
+              <p className="rs-split-text">
+                Every business gets its own escrow vault and share token. Every
+                investor gets a PDA recording exactly what they own. All money
+                movements are verifiable on Solana.
+              </p>
+
+              <ul className="rs-feature-list">
+                <li>
+                  <span className="rs-feature-dot rs-dot-violet" />
+                  Businesses issue shares in USDC, priced per token
+                </li>
+                <li>
+                  <span className="rs-feature-dot rs-dot-cyan" />
+                  Investors buy and hold shares directly on-chain
+                </li>
+                <li>
+                  <span className="rs-feature-dot rs-dot-blue" />
+                  Monthly profit deposits flow to holders automatically
+                </li>
+              </ul>
+            </Reveal>
+
+            <Reveal className="rs-split-panel" delay={200}>
+              <div className="rs-stat-card">
+                <span className="rs-stat-label">Escrow vaults</span>
+                <span className="rs-stat-value">On-chain</span>
+              </div>
+              <div className="rs-stat-card">
+                <span className="rs-stat-label">Share ownership</span>
+                <span className="rs-stat-value">Verifiable</span>
+              </div>
+              <div className="rs-stat-card">
+                <span className="rs-stat-label">Monthly payouts</span>
+                <span className="rs-stat-value">Automatic</span>
+              </div>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          SECTION 3 — CHOOSE YOUR ROLE
+         ============================================================ */}
+      <section
+        id="choose"
+        className="rs-section rs-choose"
+        ref={(el) => (sectionRefs.current[2] = el)}
+      >
+        <div className="rs-glass-frame rs-choose-frame">
+          <Reveal>
+            <div className="rs-choose-header">
+              <span className="rs-eyebrow">Get started</span>
+              <h2 className="rs-choose-title">Choose your role</h2>
+              <p className="rs-choose-sub">
+                {adminRevealed
+                  ? "Admin access detected. Choose carefully — actions are logged."
+                  : "This decision is permanent for this wallet. Pick the path that matches what you're here to do."}
+              </p>
+            </div>
+          </Reveal>
+
+          <div className="rs-cards">
+            <Reveal delay={100}>
               <TiltCard
-                onClick={() => handleChooseRole("admin")}
+                onClick={() => handleChooseRole("business_owner")}
                 disabled={busy}
               >
                 <div className="role-card-border" aria-hidden />
                 <div className="role-card-glow" aria-hidden />
-                <div className="role-card-inner role-card-inner-admin">
-                  <div className="role-card-icon role-card-icon-admin">
+                <div className="role-card-inner">
+                  <div className="role-card-icon role-card-icon-owner">
                     <svg
                       viewBox="0 0 24 24"
                       fill="none"
@@ -520,21 +433,19 @@ export default function RoleSelectScreen() {
                       strokeWidth="1.6"
                     >
                       <path
-                        d="M12 3 4 6v6c0 4.5 3.4 8.6 8 9 4.6-.4 8-4.5 8-9V6l-8-3Z"
+                        d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       />
-                      <circle cx="12" cy="11" r="2" />
-                      <path d="M12 13v3M11 15h2" strokeLinecap="round" />
                     </svg>
                   </div>
-                  <h3 className="role-card-title">Admin Access</h3>
+                  <h3 className="role-card-title">I'm a Business Owner</h3>
                   <p className="role-card-desc">
-                    Review identity verifications, freeze suspicious accounts,
-                    and inspect the owner / investor experiences.
+                    Tokenize your business, sell shares to investors, and pay out
+                    monthly profit — all on-chain.
                   </p>
-                  <span className="role-card-cta role-card-cta-admin">
-                    Authenticate
+                  <span className="role-card-cta">
+                    Continue
                     <svg
                       viewBox="0 0 24 24"
                       fill="none"
@@ -553,15 +464,115 @@ export default function RoleSelectScreen() {
                 </div>
               </TiltCard>
             </Reveal>
-          )}
-        </div>
 
-        <Reveal delay={320}>
-          <p className="rs-footnote">
-            Wallet signatures are free — you'll only pay network fees when you
-            create a business or make an investment.
-          </p>
-        </Reveal>
+            <Reveal delay={220}>
+              <TiltCard
+                onClick={() => handleChooseRole("investor")}
+                disabled={busy}
+              >
+                <div className="role-card-border" aria-hidden />
+                <div className="role-card-glow" aria-hidden />
+                <div className="role-card-inner">
+                  <div className="role-card-icon role-card-icon-investor">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                    >
+                      <path
+                        d="M3 17l6-6 4 4 8-8M14 7h7v7"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="role-card-title">I'm an Investor</h3>
+                  <p className="role-card-desc">
+                    Browse tokenized businesses, buy shares in USDC, and track
+                    your monthly returns.
+                  </p>
+                  <span className="role-card-cta">
+                    Continue
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      width="16"
+                      height="16"
+                    >
+                      <path
+                        d="M5 12h14M13 6l6 6-6 6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                </div>
+              </TiltCard>
+            </Reveal>
+
+            {adminRevealed && (
+              <Reveal delay={320}>
+                <TiltCard
+                  onClick={() => handleChooseRole("admin")}
+                  disabled={busy}
+                >
+                  <div className="role-card-border" aria-hidden />
+                  <div className="role-card-glow" aria-hidden />
+                  <div className="role-card-inner role-card-inner-admin">
+                    <div className="role-card-icon role-card-icon-admin">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                      >
+                        <path
+                          d="M12 3 4 6v6c0 4.5 3.4 8.6 8 9 4.6-.4 8-4.5 8-9V6l-8-3Z"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <circle cx="12" cy="11" r="2" />
+                        <path d="M12 13v3M11 15h2" strokeLinecap="round" />
+                      </svg>
+                    </div>
+                    <h3 className="role-card-title">Admin Access</h3>
+                    <p className="role-card-desc">
+                      Review identity verifications, freeze suspicious accounts,
+                      and inspect the owner / investor experiences.
+                    </p>
+                    <span className="role-card-cta role-card-cta-admin">
+                      Authenticate
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        width="16"
+                        height="16"
+                      >
+                        <path
+                          d="M5 12h14M13 6l6 6-6 6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </span>
+                  </div>
+                </TiltCard>
+              </Reveal>
+            )}
+          </div>
+
+          <Reveal delay={320}>
+            <p className="rs-footnote">
+              Wallet signatures are free — you'll only pay network fees when you
+              create a business or make an investment.
+            </p>
+          </Reveal>
+        </div>
       </section>
     </div>
   );

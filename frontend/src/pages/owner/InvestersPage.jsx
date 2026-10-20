@@ -1,11 +1,9 @@
-// ============================================================================
-// src/pages/owner/InvestorsPage.jsx
-// ============================================================================
 import { useEffect, useState, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../config/api";
 import toast from "react-hot-toast";
-
+import inveser_vdo from "../../assets/invester_video.mp4";
+import "./invester_ui.css";
 // ---------------------------------------------------------------------------
 // Icons
 // ---------------------------------------------------------------------------
@@ -41,6 +39,48 @@ function Icon({ name, size = 18 }) {
     default:
       return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// ⭐ NEW — Global cursor glow tracker (rAF-lerped, writes CSS vars on <html>)
+// ---------------------------------------------------------------------------
+function useCursorGlow() {
+  useEffect(() => {
+    let raf = 0;
+    let tx = window.innerWidth / 2;
+    let ty = window.innerHeight / 2;
+    let cx = tx;
+    let cy = ty;
+
+    const onMove = (e) => {
+      tx = e.clientX;
+      ty = e.clientY;
+    };
+
+    const tick = () => {
+      cx += (tx - cx) * 0.14;
+      cy += (ty - cy) * 0.14;
+      const root = document.documentElement;
+      root.style.setProperty("--cursor-x", `${cx}px`);
+      root.style.setProperty("--cursor-y", `${cy}px`);
+      root.style.setProperty(
+        "--cursor-x-pct",
+        `${(cx / window.innerWidth) * 100}%`
+      );
+      root.style.setProperty(
+        "--cursor-y-pct",
+        `${(cy / window.innerHeight) * 100}%`
+      );
+      raf = requestAnimationFrame(tick);
+    };
+
+    window.addEventListener("mousemove", onMove, { passive: true });
+    raf = requestAnimationFrame(tick);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
 }
 
 // ---------------------------------------------------------------------------
@@ -120,7 +160,6 @@ function InvestorCard({ investor, index }) {
 
   return (
     <div className="iv2-card" style={{ "--delay": `${index * 50}ms` }}>
-      {/* Head: avatar + identity */}
       <div className="iv2-card-head">
         <div className="iv2-avatar">{initial}</div>
         <div className="iv2-identity">
@@ -140,14 +179,12 @@ function InvestorCard({ investor, index }) {
         </div>
       </div>
 
-      {/* Wallet row */}
       <div className="iv2-wallet-row">
         <Icon name="wallet" size={13} />
         <span className="iv2-wallet-addr">{shortWallet}</span>
         <CopyButton text={investor.wallet} />
       </div>
 
-      {/* Metrics */}
       <div className="iv2-metrics">
         <div className="iv2-metric">
           <span className="iv2-metric-label">Tokens</span>
@@ -167,7 +204,6 @@ function InvestorCard({ investor, index }) {
         </div>
       </div>
 
-      {/* Positions list */}
       <div className="iv2-positions">
         <span className="iv2-positions-label">Positions</span>
         <ul className="iv2-positions-list">
@@ -183,7 +219,6 @@ function InvestorCard({ investor, index }) {
         </ul>
       </div>
 
-      {/* Share of total */}
       <div className="iv2-share">
         <span className="iv2-share-label">
           {investor.sharePct}% of your total raised
@@ -222,6 +257,26 @@ export default function InvestorsPage() {
   const [query, setQuery] = useState("");
   const [businessFilter, setBusinessFilter] = useState("All");
 
+  // ⭐ NEW — cursor glow
+  useCursorGlow();
+
+  // ⭐ NEW — ref to the background video so we can set playbackRate
+  const videoRef = useRef(null);
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const setRate = () => {
+      try {
+        v.playbackRate = 0.5; // slow cinematic speed
+      } catch (e) {
+        /* some browsers clamp on readyState — retry below */
+      }
+    };
+    setRate();
+    v.addEventListener("loadedmetadata", setRate);
+    return () => v.removeEventListener("loadedmetadata", setRate);
+  }, []);
+
   useEffect(() => {
     api
       .get("/investments/by-owner")
@@ -232,17 +287,13 @@ export default function InvestorsPage() {
       });
   }, []);
 
-  // Unique business names for the filter dropdown
   const businessOptions = useMemo(() => {
     if (!rows) return ["All"];
     return ["All", ...new Set(rows.map((r) => r.business_name))];
   }, [rows]);
 
-  // Group by investor wallet
   const grouped = useMemo(() => {
     if (!rows) return [];
-
-    // Apply filters first (per row)
     const filtered = rows.filter((r) => {
       if (businessFilter !== "All" && r.business_name !== businessFilter) return false;
       if (query.trim()) {
@@ -286,8 +337,6 @@ export default function InvestorsPage() {
     for (const g of list) {
       g.sharePct = grandTotal > 0 ? Math.round((g.invested / grandTotal) * 100) : 0;
     }
-
-    // Sort by invested descending
     list.sort((a, b) => b.invested - a.invested);
     return list;
   }, [rows, query, businessFilter]);
@@ -307,7 +356,27 @@ export default function InvestorsPage() {
 
   return (
     <div className="iv2-page">
-      <div className="iv2-halo" aria-hidden />
+      {/* ============================================================
+          ⭐ FIXED BACKGROUND VIDEO — never scrolls, plays slow,
+          always fills the viewport (object-fit: cover).
+         ============================================================ */}
+      <div className="iv2-bg-video-wrap" aria-hidden>
+        <video
+          ref={videoRef}
+          className="iv2-bg-video"
+          src={inveser_vdo}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+        />
+        <div className="iv2-bg-video-overlay" />
+      </div>
+
+      {/* ⭐ Cursor glass spotlight */}
+      <div className="iv2-cursor-glow" aria-hidden />
+      <div className="iv2-cursor-spark" aria-hidden />
 
       <div className="iv2-container">
         {/* Header */}

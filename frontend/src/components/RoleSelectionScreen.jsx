@@ -3,13 +3,22 @@ import { useNavigate } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import toast from "react-hot-toast";
+import { motion, AnimatePresence } from "framer-motion";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
+
 import { useAuth } from "../context/AuthContext";
 import Spinner from "./Spinner";
-const video = "https://svhjjphbbxzlpslgppxc.supabase.co/storage/v1/object/public/videos/first_page.mp4"
 import "./RoleSelectionScreen.css";
 
+// Register GSAP plugins
+gsap.registerPlugin(ScrollTrigger, useGSAP);
+
+const video = "https://svhjjphbbxzlpslgppxc.supabase.co/storage/v1/object/public/videos/first_page.mp4";
+
 // ---------------------------------------------------------------------------
-// Reveal on scroll
+// Reveal on scroll (Kept for inner text elements)
 // ---------------------------------------------------------------------------
 function Reveal({ children, delay = 0, className = "" }) {
   const ref = useRef(null);
@@ -95,57 +104,51 @@ export default function RoleSelectScreen() {
   const [busy, setBusy] = useState(false);
   const [pendingRole, setPendingRole] = useState(null);
   const [adminRevealed, setAdminRevealed] = useState(false);
-  const [pageProgress, setPageProgress] = useState(0);
 
-  // ── Stacked scroll controller ──────────────────────────────────────────
-  // Tracks scroll position and drives per-section opacity/scale so each
-  // section "hands off" to the next one smoothly.
   const pageRef = useRef(null);
-  const sectionRefs = useRef([]);
-  const rafRef = useRef(0);
-  const targetRef = useRef(0);
-  const currentRef = useRef(0);
+  const sectionsRef = useRef([]);
 
-  // ---- Effect: scroll progress + section fade driver ----
-  useEffect(() => {
-    function onScroll() {
-      const doc = document.documentElement;
-      const max = doc.scrollHeight - doc.clientHeight;
-      targetRef.current = max > 0 ? window.scrollY / max : 0;
-    }
+  // ── GSAP 3D Stacked Scroll Animation ───────────────────────────────────
+  useGSAP(() => {
+    const sections = sectionsRef.current;
 
-    function tick() {
-      currentRef.current += (targetRef.current - currentRef.current) * 0.15;
-      setPageProgress(currentRef.current);
+    sections.forEach((section, index) => {
+      // Don't pin the very last section (the role selection cards)
+      if (index === sections.length - 1) return;
 
-      const vh = window.innerHeight;
-      sectionRefs.current.forEach((el) => {
-        if (!el) return;
-        const rect = el.getBoundingClientRect();
-        // progress of this section through the viewport:
-        // 0 when its top hits the top of the viewport, 1 when bottom passes.
-        const p = Math.min(1, Math.max(0, -rect.top / vh));
-        // Fade + scale out as the NEXT section takes over
-        const fade = 1 - p * 0.85;
-        const scale = 1 - p * 0.06;
-        const blur = p * 6;
-        el.style.setProperty("--sec-fade", fade.toFixed(3));
-        el.style.setProperty("--sec-scale", scale.toFixed(3));
-        el.style.setProperty("--sec-blur", `${blur.toFixed(2)}px`);
-        el.style.setProperty("--sec-y", `${(-p * 40).toFixed(1)}px`);
+      gsap.to(section, {
+        scrollTrigger: {
+          trigger: section,
+          start: "top top",       // Start when section top hits viewport top
+          end: "bottom top",      // End when section bottom hits viewport top
+          scrub: 1,               // Smooth scrubbing (1s lag for premium feel)
+          pin: true,              // Pin the section in place
+          pinSpacing: false,      // Let the next section slide over it
+          anticipatePin: 1,
+        },
+        // The 3D effect: Scale down, blur, and fade out as it gets covered
+        scale: 0.9,
+        opacity: 0.4,
+        filter: "blur(12px)",
+        y: -50,
+        ease: "none",
       });
+    });
 
-      rafRef.current = requestAnimationFrame(tick);
-    }
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      cancelAnimationFrame(rafRef.current);
-    };
-  }, []);
+    // Staggered entrance for the role cards when they come into view
+    gsap.from(".role-card-3d", {
+      y: 100,
+      opacity: 0,
+      duration: 1,
+      stagger: 0.15,
+      ease: "power3.out",
+      scrollTrigger: {
+        trigger: "#choose",
+        start: "top bottom", // Start when the section enters the screen
+        toggleActions: "play none none reverse",
+      },
+    });
+  }, { scope: pageRef });
 
   // ---- Effect: admin reveal ----
   useEffect(() => {
@@ -211,17 +214,24 @@ export default function RoleSelectScreen() {
     }
   }
 
-  // ---- Busy overlay ----
+  // ---- Busy overlay (Framer Motion animated) ----
   if (busy) {
     return (
-      <div className="rs-busy">
-        <video className="rs-busy-video" src={video} autoPlay muted loop playsInline preload="metadata" />
-        <div className="rs-busy-overlay" />
-        <Spinner
-          label={`Setting up your ${pendingRole === "business_owner" ? "business owner" : "investor"
-            } account...`}
-        />
-      </div>
+      <AnimatePresence>
+        <motion.div
+          className="rs-busy"
+          initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
+          animate={{ opacity: 1, backdropFilter: "blur(10px)" }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <video className="rs-busy-video" src={video} autoPlay muted loop playsInline preload="metadata" />
+          <div className="rs-busy-overlay" />
+          <Spinner
+            label={`Setting up your ${pendingRole === "business_owner" ? "business owner" : "investor"} account...`}
+          />
+        </motion.div>
+      </AnimatePresence>
     );
   }
 
@@ -229,7 +239,6 @@ export default function RoleSelectScreen() {
     <div className="rs-page" ref={pageRef}>
       {/* ============================================================
           FIXED BACKGROUND VIDEO — stays put across all 3 sections.
-          Each section sits on top of it with its own glass overlay.
          ============================================================ */}
       <div className="rs-bg-video-wrap" aria-hidden>
         <video
@@ -281,20 +290,12 @@ export default function RoleSelectScreen() {
         </div>
       )}
 
-      {/* Top scroll progress bar */}
-      <div className="rs-progress" aria-hidden>
-        <div
-          className="rs-progress-bar"
-          style={{ transform: `scaleX(${pageProgress})` }}
-        />
-      </div>
-
       {/* ============================================================
           SECTION 1 — HERO
          ============================================================ */}
       <section
         className="rs-section rs-hero"
-        ref={(el) => (sectionRefs.current[0] = el)}
+        ref={(el) => (sectionsRef.current[0] = el)}
       >
         <div className="rs-glass-frame rs-hero-frame">
           <div className="rs-hero-inner">
@@ -346,7 +347,7 @@ export default function RoleSelectScreen() {
          ============================================================ */}
       <section
         className="rs-section rs-split"
-        ref={(el) => (sectionRefs.current[1] = el)}
+        ref={(el) => (sectionsRef.current[1] = el)}
       >
         <div className="rs-glass-frame rs-split-frame">
           <div className="rs-split-inner">
@@ -401,7 +402,7 @@ export default function RoleSelectScreen() {
       <section
         id="choose"
         className="rs-section rs-choose"
-        ref={(el) => (sectionRefs.current[2] = el)}
+        ref={(el) => (sectionsRef.current[2] = el)}
       >
         <div className="rs-glass-frame rs-choose-frame">
           <Reveal>

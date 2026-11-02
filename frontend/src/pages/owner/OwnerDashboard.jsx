@@ -1,8 +1,16 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
+import { motion, useScroll, useTransform, useInView, AnimatePresence } from "framer-motion";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { ScrollToPlugin } from "gsap/ScrollToPlugin";
 import { api } from "../../config/api";
 import toast from "react-hot-toast";
-const owner_vdo ="https://svhjjphbbxzlpslgppxc.supabase.co/storage/v1/object/public/videos/owner_vdo.mp4"
+
+gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+ 
+const owner_vdo = "https://svhjjphbbxzlpslgppxc.supabase.co/storage/v1/object/public/videos/owner_vdo.mp4";
+
 import KYCBadge from "../../components/KYCBadge";
 import { useAuthContext } from "../../context/AuthContext";
 import "../KYC.css";
@@ -43,7 +51,7 @@ function Icon({ name, size = 18 }) {
 // ---------------------------------------------------------------------------
 // Animated counter
 // ---------------------------------------------------------------------------
-function Counter({ value, duration = 800, format = (n) => Math.round(n).toLocaleString() }) {
+function Counter({ value, duration = 1200, format = (n) => Math.round(n).toLocaleString() }) {
   const [display, setDisplay] = useState(0);
   const rafRef = useRef(null);
 
@@ -54,7 +62,7 @@ function Counter({ value, duration = 800, format = (n) => Math.round(n).toLocale
 
     function tick(now) {
       const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
+      const eased = 1 - Math.pow(1 - t, 4);
       setDisplay(from + (to - from) * eased);
       if (t < 1) rafRef.current = requestAnimationFrame(tick);
     }
@@ -69,20 +77,102 @@ function Counter({ value, duration = 800, format = (n) => Math.round(n).toLocale
 }
 
 // ---------------------------------------------------------------------------
-// Stat tile
+// 3D Tilt Stat Tile with GSAP
 // ---------------------------------------------------------------------------
-function StatTile({ icon, label, value, suffix, prefix, accent = "violet" }) {
+function StatTile({ icon, label, value, suffix, prefix, accent = "violet", index = 0 }) {
+  const tileRef = useRef(null);
+  const iconRef = useRef(null);
+  const valueRef = useRef(null);
+
+  useEffect(() => {
+    const el = tileRef.current;
+    if (!el) return;
+
+    // GSAP entrance
+    gsap.fromTo(
+      el,
+      { opacity: 0, y: 40, rotateX: -15, scale: 0.9 },
+      {
+        opacity: 1,
+        y: 0,
+        rotateX: 0,
+        scale: 1,
+        duration: 0.9,
+        delay: index * 0.12,
+        ease: "power3.out",
+        scrollTrigger: {
+          trigger: el,
+          start: "top 90%",
+          toggleActions: "play none none reverse",
+        },
+      }
+    );
+
+    // 3D tilt on mouse move
+    const handleMouseMove = (e) => {
+      const rect = el.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      const rotateY = ((x - centerX) / centerX) * 10;
+      const rotateX = ((centerY - y) / centerY) * 10;
+
+      gsap.to(el, {
+        rotateY,
+        rotateX,
+        transformPerspective: 1000,
+        duration: 0.4,
+        ease: "power2.out",
+      });
+    };
+
+    const handleMouseLeave = () => {
+      gsap.to(el, {
+        rotateY: 0,
+        rotateX: 0,
+        duration: 0.7,
+        ease: "elastic.out(1, 0.5)",
+      });
+    };
+
+    el.addEventListener("mousemove", handleMouseMove);
+    el.addEventListener("mouseleave", handleMouseLeave);
+
+    return () => {
+      el.removeEventListener("mousemove", handleMouseMove);
+      el.removeEventListener("mouseleave", handleMouseLeave);
+    };
+  }, [index]);
+
+  useEffect(() => {
+    if (!iconRef.current) return;
+    gsap.to(iconRef.current, {
+      rotate: 360,
+      duration: 12,
+      repeat: -1,
+      ease: "none",
+    });
+  }, []);
+
   return (
-    <div className={`od-stat od-stat-${accent}`}>
-      <div className="od-stat-icon"><Icon name={icon} size={20} /></div>
+    <div
+      ref={tileRef}
+      className={`od-stat od-stat-${accent}`}
+      style={{ transformStyle: "preserve-3d" }}
+    >
+      <div className="od-stat-icon" ref={iconRef}>
+        <Icon name={icon} size={20} />
+      </div>
       <div className="od-stat-body">
         <span className="od-stat-label">{label}</span>
-        <span className="od-stat-value">
+        <span className="od-stat-value" ref={valueRef}>
           {prefix}
           <Counter value={value} />
           {suffix}
         </span>
       </div>
+      <div className="od-stat-shine" aria-hidden />
     </div>
   );
 }
@@ -108,7 +198,7 @@ function CopyButton({ text, label = "Copy address" }) {
 
   return (
     <button
-      className="od-copy"
+      className={`od-copy ${copied ? "od-copy-done" : ""}`}
       onClick={handleCopy}
       title={label}
       aria-label={label}
@@ -120,9 +210,12 @@ function CopyButton({ text, label = "Copy address" }) {
 }
 
 // ---------------------------------------------------------------------------
-// Business card
+// 3D Business Card with GSAP tilt + Framer entrance
 // ---------------------------------------------------------------------------
 function OwnerBusinessCard({ business, index, kycApproved, kycStatus }) {
+  const cardRef = useRef(null);
+  const glowRef = useRef(null);
+
   const tokensSold = Number(business.tokens_sold || 0);
   const totalTokens = Number(business.total_tokens || 0);
   const ratio = totalTokens > 0 ? Math.min(1, tokensSold / totalTokens) : 0;
@@ -133,10 +226,92 @@ function OwnerBusinessCard({ business, index, kycApproved, kycStatus }) {
     ? `${business.onchain_pubkey.slice(0, 4)}…${business.onchain_pubkey.slice(-4)}`
     : "—";
 
+  useEffect(() => {
+    const card = cardRef.current;
+    const glow = glowRef.current;
+    if (!card) return;
+
+    // GSAP entrance with ScrollTrigger
+    gsap.fromTo(
+      card,
+      { opacity: 0, y: 60, rotateY: -8, scale: 0.94 },
+      {
+        opacity: 1,
+        y: 0,
+        rotateY: 0,
+        scale: 1,
+        duration: 0.9,
+        delay: index * 0.1,
+        ease: "power3.out",
+        scrollTrigger: {
+          trigger: card,
+          start: "top 92%",
+          toggleActions: "play none none reverse",
+        },
+      }
+    );
+
+    // 3D tilt + glow follow
+    const handleMouseMove = (e) => {
+      const rect = card.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      const rotateY = ((x - centerX) / centerX) * 8;
+      const rotateX = ((centerY - y) / centerY) * 8;
+
+      gsap.to(card, {
+        rotateY,
+        rotateX,
+        transformPerspective: 1200,
+        duration: 0.5,
+        ease: "power2.out",
+      });
+
+      if (glow) {
+        gsap.to(glow, {
+          left: `${(x / rect.width) * 100}%`,
+          top: `${(y / rect.height) * 100}%`,
+          opacity: 1,
+          duration: 0.5,
+          ease: "power2.out",
+        });
+      }
+    };
+
+    const handleMouseLeave = () => {
+      gsap.to(card, {
+        rotateY: 0,
+        rotateX: 0,
+        duration: 0.8,
+        ease: "elastic.out(1, 0.5)",
+      });
+      if (glow) {
+        gsap.to(glow, { opacity: 0, duration: 0.4 });
+      }
+    };
+
+    card.addEventListener("mousemove", handleMouseMove);
+    card.addEventListener("mouseleave", handleMouseLeave);
+
+    return () => {
+      card.removeEventListener("mousemove", handleMouseMove);
+      card.removeEventListener("mouseleave", handleMouseLeave);
+    };
+  }, [index]);
+
   return (
-    <div className="od-card" style={{ "--delay": `${index * 60}ms` }}>
+    <div
+      ref={cardRef}
+      className="od-card"
+      style={{ transformStyle: "preserve-3d" }}
+    >
+      <div ref={glowRef} className="od-card-glow" aria-hidden />
+
       <div className="od-card-cover">
         <div className="od-card-cover-grad" aria-hidden />
+        <div className="od-card-cover-shine" aria-hidden />
         <span className="od-card-badge">{business.category || "Business"}</span>
 
         <span className="od-card-kyc" title="Your KYC status for this business">
@@ -211,6 +386,117 @@ function SkeletonCard() {
 }
 
 // ---------------------------------------------------------------------------
+// Hero section with GSAP scroll parallax
+// ---------------------------------------------------------------------------
+function HeroSection() {
+  const heroRef = useRef(null);
+  const titleRef = useRef(null);
+  const badgeRef = useRef(null);
+  const orb1Ref = useRef(null);
+  const orb2Ref = useRef(null);
+
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+
+    const ctx = gsap.context(() => {
+      // Badge entrance
+      gsap.fromTo(
+        badgeRef.current,
+        { opacity: 0, y: -20, scale: 0.8 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.8, ease: "power3.out", delay: 0.2 }
+      );
+
+      // Title character animation
+      if (titleRef.current) {
+        const chars = titleRef.current.querySelectorAll(".od-char");
+        gsap.fromTo(
+          chars,
+          { opacity: 0, y: 60, rotateX: -90 },
+          {
+            opacity: 1,
+            y: 0,
+            rotateX: 0,
+            duration: 0.9,
+            stagger: 0.03,
+            ease: "power4.out",
+            delay: 0.4,
+          }
+        );
+      }
+
+      // Orb parallax on scroll
+      gsap.to(orb1Ref.current, {
+        y: -150,
+        rotate: 30,
+        scrollTrigger: {
+          trigger: hero,
+          start: "top top",
+          end: "bottom top",
+          scrub: 1,
+        },
+      });
+
+      gsap.to(orb2Ref.current, {
+        y: 120,
+        rotate: -20,
+        scrollTrigger: {
+          trigger: hero,
+          start: "top top",
+          end: "bottom top",
+          scrub: 1.2,
+        },
+      });
+    }, hero);
+
+    return () => ctx.revert();
+  }, []);
+
+  const headline = "Turn your business into on-chain ownership".split(" ");
+
+  return (
+    <section ref={heroRef} className="od-hero" aria-label="Sarmayachain intro">
+      {/* Floating 3D orbs */}
+      <div ref={orb1Ref} className="od-orb od-orb-1" aria-hidden />
+      <div ref={orb2Ref} className="od-orb od-orb-2" aria-hidden />
+      <div className="od-orb od-orb-3" aria-hidden />
+
+      <div className="od-hero-inner">
+        <span ref={badgeRef} className="od-hero-badge">
+          <span className="od-hero-dot" />
+          Owner dashboard
+        </span>
+
+        <h1 ref={titleRef} className="od-hero-headline">
+          {headline.map((word, i) => (
+            <span key={i} className="od-word">
+              {word.split("").map((char, j) => (
+                <span key={j} className="od-char">
+                  {char}
+                </span>
+              ))}
+              {i < headline.length - 1 && " "}
+            </span>
+          ))}
+        </h1>
+
+        <p className="od-hero-sub">
+          Launch a share offering in under a minute. Pay out monthly profit
+          automatically. Every investor is KYC-verified.
+        </p>
+
+        <div className="od-hero-scroll-hint">
+          <span>Scroll to explore</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 5v14M5 12l7 7 7-7" />
+          </svg>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 export default function OwnerDashboard() {
@@ -219,6 +505,12 @@ export default function OwnerDashboard() {
   const kycApproved = kycStatus === "approved";
 
   const [businesses, setBusinesses] = useState(null);
+  const containerRef = useRef(null);
+  const statsRef = useRef(null);
+
+  const { scrollYProgress } = useScroll();
+  const bgOpacity = useTransform(scrollYProgress, [0, 1], [1, 0.5]);
+  const bgScale = useTransform(scrollYProgress, [0, 1], [1, 1.15]);
 
   useEffect(() => {
     api
@@ -230,27 +522,75 @@ export default function OwnerDashboard() {
       });
   }, []);
 
-  // Optional: gentle fade + zoom on the background as the user scrolls
+  // GSAP global scroll effects
   useEffect(() => {
-    const overlay = document.querySelector(".od-bg-overlay");
-    const video = document.querySelector(".od-bg-video");
-    if (!overlay || !video) return;
+    const ctx = gsap.context(() => {
+      // Header entrance
+      gsap.fromTo(
+        ".od-header",
+        { opacity: 0, y: 50 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 1,
+          ease: "power3.out",
+          scrollTrigger: {
+            trigger: ".od-header",
+            start: "top 85%",
+            toggleActions: "play none none reverse",
+          },
+        }
+      );
 
-    let raf = 0;
-    const onScroll = () => {
-      if (raf) cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const p = Math.min(1, window.scrollY / window.innerHeight);
-        overlay.style.opacity = String(1 - p * 0.35);
-        video.style.transform = `scale(${1 + p * 0.06})`;
+      // Stat strip entrance
+      gsap.fromTo(
+        ".od-stats",
+        { opacity: 0, y: 30 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.8,
+          ease: "power2.out",
+          scrollTrigger: {
+            trigger: ".od-stats",
+            start: "top 90%",
+            toggleActions: "play none none reverse",
+          },
+        }
+      );
+
+      // Container 3D scroll rotation
+      gsap.to(".od-container", {
+        rotateX: 2,
+        scale: 0.98,
+        scrollTrigger: {
+          trigger: ".od-container",
+          start: "top 80%",
+          end: "bottom 20%",
+          scrub: 1,
+        },
       });
-    };
 
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      if (raf) cancelAnimationFrame(raf);
-    };
+      // KYC banner
+      gsap.fromTo(
+        ".kyc-gate-banner",
+        { opacity: 0, x: -40, rotateY: -10 },
+        {
+          opacity: 1,
+          x: 0,
+          rotateY: 0,
+          duration: 0.9,
+          ease: "power3.out",
+          scrollTrigger: {
+            trigger: ".kyc-gate-banner",
+            start: "top 88%",
+            toggleActions: "play none none reverse",
+          },
+        }
+      );
+    }, containerRef);
+
+    return () => ctx.revert();
   }, []);
 
   const stats = useMemo(() => {
@@ -268,10 +608,10 @@ export default function OwnerDashboard() {
   }, [businesses]);
 
   return (
-    <div className="od-page">
+    <div className="od-page" ref={containerRef}>
       {/* ============ Fixed background video ============ */}
       <div className="od-bg" aria-hidden>
-        <video
+        <motion.video
           className="od-bg-video"
           src={owner_vdo}
           autoPlay
@@ -279,33 +619,21 @@ export default function OwnerDashboard() {
           loop
           playsInline
           preload="metadata"
+          style={{ opacity: bgOpacity, scale: bgScale }}
           onLoadedMetadata={(e) => { e.currentTarget.playbackRate = 0.6; }}
           onPlay={(e) => { e.currentTarget.playbackRate = 0.6; }}
         />
         <div className="od-bg-overlay" />
+        <div className="od-bg-grid" aria-hidden />
       </div>
 
       {/* ============ All UI floats above the video ============ */}
       <div className="od-content">
-        {/* Hero copy */}
-        <section className="od-hero" aria-label="Sarmayachain intro">
-          <div className="od-hero-inner">
-            <span className="od-hero-badge">
-              <span className="od-hero-dot" />
-              Owner dashboard
-            </span>
-            {/* <h1 className="od-hero-headline">
-              Turn your business into <em>on-chain ownership</em>.
-            </h1> */}
-            {/* <p className="od-hero-sub">
-              Launch a share offering in under a minute. Pay out monthly profit
-              automatically. Every investor is KYC-verified.
-            </p> */}
-          </div>
-        </section>
+        {/* Hero copy with GSAP */}
+        <HeroSection />
 
         {/* Glass dashboard container */}
-        <div className=" od-container">
+        <div className="od-container">
           {/* Header */}
           <header className="od-header">
             <div>
@@ -353,45 +681,67 @@ export default function OwnerDashboard() {
           )}
 
           {/* Stat strip */}
-          <div className="od-stats">
-            <StatTile icon="grid" label="Businesses" value={stats.count} accent="violet" />
-            <StatTile icon="coins" label="Shares issued" value={stats.shares} accent="cyan" />
-            <StatTile icon="trend" label="Potential raise" value={stats.raise} prefix="$" accent="indigo" />
+          <div className="od-stats" ref={statsRef}>
+            <StatTile icon="grid" label="Businesses" value={stats.count} accent="violet" index={0} />
+            <StatTile icon="coins" label="Shares issued" value={stats.shares} accent="cyan" index={1} />
+            <StatTile icon="trend" label="Potential raise" value={stats.raise} prefix="$" accent="indigo" index={2} />
           </div>
 
           {/* Content */}
-          {businesses === null ? (
-            <div className="od-grid">
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-            </div>
-          ) : businesses.length === 0 ? (
-            <div className="od-empty">
-              <div className="od-empty-icon"><Icon name="spark" size={32} /></div>
-              <h2>No businesses yet</h2>
-              <p>
-                When you create your first business, it will show up here with
-                live metrics and a link to manage profit deposits.
-              </p>
-              <Link to="/owner/create-business" className="od-cta od-cta-large">
-                <Icon name="plus" size={16} />
-                Create your first business
-              </Link>
-            </div>
-          ) : (
-            <div className="od-grid">
-              {businesses.map((b, i) => (
-                <OwnerBusinessCard
-                  key={b.onchain_pubkey}
-                  business={b}
-                  index={i}
-                  kycApproved={kycApproved}
-                  kycStatus={kycStatus}
-                />
-              ))}
-            </div>
-          )}
+          <AnimatePresence mode="wait">
+            {businesses === null ? (
+              <motion.div
+                key="skeleton"
+                className="od-grid"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </motion.div>
+            ) : businesses.length === 0 ? (
+              <motion.div
+                key="empty"
+                className="od-empty"
+                initial={{ opacity: 0, y: 30, rotateX: -10 }}
+                animate={{ opacity: 1, y: 0, rotateX: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="od-empty-icon"><Icon name="spark" size={32} /></div>
+                <h2>No businesses yet</h2>
+                <p>
+                  When you create your first business, it will show up here with
+                  live metrics and a link to manage profit deposits.
+                </p>
+                <Link to="/owner/create-business" className="od-cta od-cta-large">
+                  <Icon name="plus" size={16} />
+                  Create your first business
+                </Link>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="grid"
+                className="od-grid"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.4 }}
+              >
+                {businesses.map((b, i) => (
+                  <OwnerBusinessCard
+                    key={b.onchain_pubkey}
+                    business={b}
+                    index={i}
+                    kycApproved={kycApproved}
+                    kycStatus={kycStatus}
+                  />
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>

@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../config/api";
 import toast from "react-hot-toast";
-import inveser_vdo from "../../assets/invester_video.mp4";
+const  inveser_vdo = "https://svhjjphbbxzlpslgppxc.supabase.co/storage/v1/object/public/videos/invester_video.mp4"
 import "./invester_ui.css";
 // ---------------------------------------------------------------------------
 // Icons
@@ -369,7 +369,7 @@ export default function InvestorsPage() {
           muted
           loop
           playsInline
-          preload="auto"
+          preload="metadata"
         />
         <div className="iv2-bg-video-overlay" />
       </div>

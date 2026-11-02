@@ -4,7 +4,7 @@ import { api } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 import ClaimableProfit from "../../components/ClaimedProfit";
-import invester_ui from "../../assets/investers_ui.mp4";
+const  invester_ui = "https://svhjjphbbxzlpslgppxc.supabase.co/storage/v1/object/public/videos/investers_ui.mp4"
 
 function Icon({ name, size = 18 }) {
   const p = {
@@ -366,7 +366,7 @@ export default function InvestorDashboard() {
           muted
           loop
           playsInline
-          preload="auto"
+          preload="metadata"
           onLoadedMetadata={(e) => {
             e.currentTarget.playbackRate = 0.7;
           }}

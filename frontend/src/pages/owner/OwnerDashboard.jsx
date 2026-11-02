@@ -1,12 +1,8 @@
-// ============================================================================
-// src/pages/owner/OwnerDashboard.jsx
-// Fixed video background + glass UI overlay
-// ============================================================================
 import { useEffect, useState, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../config/api";
 import toast from "react-hot-toast";
-import owner_vdo from "../../assets/owner_vdo.mp4";
+const owner_vdo ="https://svhjjphbbxzlpslgppxc.supabase.co/storage/v1/object/public/videos/owner_vdo.mp4"
 import KYCBadge from "../../components/KYCBadge";
 import { useAuthContext } from "../../context/AuthContext";
 import "../KYC.css";
@@ -282,7 +278,7 @@ export default function OwnerDashboard() {
           muted
           loop
           playsInline
-          preload="auto"
+          preload="metadata"
           onLoadedMetadata={(e) => { e.currentTarget.playbackRate = 0.6; }}
           onPlay={(e) => { e.currentTarget.playbackRate = 0.6; }}
         />

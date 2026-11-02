@@ -1,6 +1,3 @@
-// ============================================================================
-// src/pages/investor/MarketplacePage.jsx
-// ============================================================================
 import { useEffect, useState, useMemo } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import * as anchor from "@coral-xyz/anchor";

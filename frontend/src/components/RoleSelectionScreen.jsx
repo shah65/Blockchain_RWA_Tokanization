@@ -5,7 +5,7 @@ import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import Spinner from "./Spinner";
-import video from "../assets/first_page.mp4";
+const video = "https://svhjjphbbxzlpslgppxc.supabase.co/storage/v1/object/public/videos/first_page.mp4"
 import "./RoleSelectionScreen.css";
 
 // ---------------------------------------------------------------------------
@@ -215,7 +215,7 @@ export default function RoleSelectScreen() {
   if (busy) {
     return (
       <div className="rs-busy">
-        <video className="rs-busy-video" src={video} autoPlay muted loop playsInline />
+        <video className="rs-busy-video" src={video} autoPlay muted loop playsInline preload="metadata" />
         <div className="rs-busy-overlay" />
         <Spinner
           label={`Setting up your ${pendingRole === "business_owner" ? "business owner" : "investor"
@@ -239,7 +239,7 @@ export default function RoleSelectScreen() {
           muted
           loop
           playsInline
-          preload="auto"
+          preload="metadata"
         />
         <div className="rs-bg-video-overlay" />
         <div className="rs-aurora">
